@@ -11,7 +11,7 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is the microblog-instantbird messenging client.
+ * The Original Code is the IRC-JavaScript.
  *
  * The Initial Developer of the Original Code is
  * Patrick Cloke <clokep@gmail.com>.
@@ -65,6 +65,13 @@ function Conversation(aAccount) {
 	this._init(aAccount);
 }
 Conversation.prototype = {
+	sendMsg: function(aMsg) {
+		dump("Send");
+		dump(aMsg);
+		dump(this.account.outputStream.write(aMsg, aMsg.length));
+		this.writeMessage("Me",aMsg,{outgoing: true});
+		dump("Send end");
+	},
 	get name() "IRC"
 };
 Conversation.prototype.__proto__ = GenericConversationPrototype;
@@ -79,26 +86,32 @@ Account.prototype = {
 	scritableInputStream: null,
 	pump: null,
 	onStartRequest: function(request, context) {
-		dump("start");
+		dump("Start");
 	},
 	onStopRequest: function(request, context, status) {
-		dump("stop");
+		dump("Stop");
 		this.outputStream.close();
 		this.scriptableInputStream.close();
 	},
 	onDataAvailable: function(request, context, inputStream, offset, count) {
-		dump("data");
-		dump(this.scriptableInputStream.read(count));
-		//this._conv.writeMessage("IRC",scriptableInputStream.read(count),{})
+		dump("Data");
+		let data = this.scriptableInputStream.read(count);
+		dump(data);
+		this._conv.writeMessage("IRC",data,{incoming: true});
+		dump("Data end");
 	},
 	
 	connect: function() {
 		this.base.connecting();
+		let self = this;
+		this._conv = new Conversation(self);
+		this._conv.writeMessage("IRC", "You're now chatting on IRC!", {system: true});
 
 		var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
 		this.socketTransport = socketTransportService.createTransport(null, // Socket type
 																	 0, // Length of socket types
-																	 "irc.mozilla.org", // Host
+																	 //"irc.mozilla.org", // Host
+																	 "localhost", // Host
 																	 6667, // Port
 																	 null); // Proxy info
 		
@@ -124,7 +137,6 @@ Account.prototype = {
 		this.pump.asyncRead(this, null);
 
 		this.base.connected();
-		this._conv = new Conversation(self);
 	},
 	
 	disconnect: function() {
