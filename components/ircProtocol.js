@@ -19,6 +19,8 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
+ *   Parser based on some code from ChatZilla (JSIRC Library)
+ *     New Dimensions Consulting, Inc & Robert Ginda <rginda@ndcico.com> 1999
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -50,7 +52,7 @@
  */
 
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
-Components.utils.import("resource://app/modules/jsProtoHelper.jsm");
+Components.utils.import("resource:///modules/jsProtoHelper.jsm");
 
 var Cc = Components.classes;
 var Ci = Components.interfaces;
@@ -86,18 +88,15 @@ Account.prototype = {
   outputStream: null,
   scritableInputStream: null,
   pump: null,
-  onStartRequest: function(request, context) {
-    dump("Start");
-  },
-  onStopRequest: function(request, context, status) {
-    dump("Stop");
-  },
+
+  // Data listener object
+  onStartRequest: function(request, context) { },
+  onStopRequest: function(request, context, status) { },
   onDataAvailable: function(request, context, inputStream, offset, count) {
-    dump("Data");
-    let data = this.scriptableInputStream.read(count);
-    dump(data);
-    this._conv.writeMessage("IRC",data,{incoming: true});
-    dump("Data end");
+    let data = this.scriptableInputStream.read(count).split(/\r\n/);
+    for (var i = 0; i < data.length; i++)
+      this._conv.writeMessage("IRC",data,{incoming: true});
+    var message = parseMessage(data);
   },
   
   connect: function() {
@@ -109,9 +108,11 @@ Account.prototype = {
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
     this.socketTransport = socketTransportService.createTransport(null, // Socket type
                                                                   0, // Length of socket types
-                                                                  "irc.mozilla.org", // Host
+                                                                  //"irc.mozilla.org", // Host
+                                                                  "localhost", // Host
                                                                   6667, // Port
                                                                   null); // Proxy info
+  // Add a socketTransport listener so we can give better info to this.base.connecting()
     
     this.outputStream = this.socketTransport.openOutputStream(0, // flags
                                                               0, // Use default segment size
@@ -149,8 +150,58 @@ function IRCProtocol() { }
 IRCProtocol.prototype = {
   get name() "IRC-JS",
   getAccount: function(aKey, aName) new Account(this, aKey, aName),
-  classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}"),
+  classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}")
 };
 IRCProtocol.prototype.__proto__ = GenericProtocolPrototype;
 
-var NSGetModule = XPCOMUtils.generateNSGetModule([IRCProtocol]);
+const NSGetFactory = XPCOMUtils.generateNSGetFactory([IRCProtocol]);
+
+/*
+ * See section 2.3 of RFC 2812
+ * 
+ * parseMessage takes the message string and pulls useful information out. It
+ * returns a message object which contains:
+ *   source..........source of the message
+ *   nickname........user's nickname
+ *   user............user's username
+ *   host............user's hostname
+ *   command.........the command being implemented
+ *   params..........list of parameters
+ */
+function parseMessage(data) {
+  var message = {};
+  var temp, source;
+
+  if (data.length == 0) {
+    dump("empty line on data");
+    return message;
+  }
+
+  if (data[0] == ":") {
+    // Must split only on spaces here, not any whitespace
+    temp = data.match(/:([^ ]+) +(.*)/);
+    message.source = temp[1];
+    data = temp[2];
+    if ((temp = source.match(/([^ ]+)!([^ ]+)@(.*)/))) {
+      message.nickname = temp[1];
+      message.user = temp[2];
+      message.host = temp[3];
+    } else if ((temp = source.match(/([^ ]+)@(.*)/))) {
+      message.nickname = temp[1];
+      message.host = temp[2];
+    } else if ((temp = source.match(/([^ ]+)!(.*)/))) {
+      message.nickname = temp[1];
+      message.user = temp[2];
+    }
+  }
+
+  message.params = data.split(/ +/);
+  if (message.params[message.params.length - 1][0] == ":") /* <trailing> param, if there is one */
+    message.params[message.params.length - 1] = message.params[message.params.length - 1].substr(1);
+  
+  if (message.params.length)
+    message.command = message.params.shift().toUpperCase();
+
+  return message;
+}
+
