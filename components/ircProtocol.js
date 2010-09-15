@@ -51,6 +51,8 @@
  *   ISupport (response code 005; supported by most servers) -- http://www.irc.org/tech_docs/draft-brocklesby-irc-isupport-03.txt
  */
 
+// TODO Can we auto-detect character encoding?
+
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
@@ -150,6 +152,8 @@ Account.prototype = {
   },
   
   /*
+   * XXX flo wants to clean up this algorithm, it definitely can be done cleaner
+   *   One regex to pull into the 3 or 4 parts and then .split(/ +/) the params
    * See section 2.3 of RFC 2812
    * 
    * parseMessage takes the message string and pulls useful information out. It
@@ -172,7 +176,7 @@ Account.prototype = {
   
     if (aData[0] == ":") {
       // Must split only on spaces here, not any whitespace
-      temp = aData.match(/:([^ ]+) +(.*)/);
+      let temp = aData.match(/:([^ ]+) +(.*)/);
       aMessage.source = temp[1];
       aData = temp[2];
       if ((temp = aMessage.source.match(/([^ ]+)!([^ ]+)@(.*)/))) {
