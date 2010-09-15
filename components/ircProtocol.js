@@ -89,8 +89,8 @@ Account.prototype = {
   _outputStream: null,
   _scritableInputStream: null,
   _pump: null,
-  //_server: "irc.mozilla.org",
-  _server: "localhost",
+  _server: "irc.mozilla.org",
+  //_server: "localhost",
   _port: 6667,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
   _realname: "clokep",
@@ -165,16 +165,30 @@ Account.prototype = {
    *   command.........the command being implemented
    *   params..........list of parameters
    */
+  // See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
   _parseMessage: function(aData) {
     var aMessage = {};
     aMessage.rawMessage = aData;
-  
-    if (!aData.length) {
-      dump("empty line on data");
-      return aMessage;
+    let temp;
+
+    if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
+      if (temp[1])
+        aMessage.source = temp[1];
+      else
+        aMessage.source = this._server;
+      aMessage.command = temp[2];
+      if (temp[3])
+        aMessage.params = temp[3].split(/ +/);
+      else
+        aMessage.params = [];
+      if (temp[4])
+        aMessage.params.push(temp[4]);
     }
-  
-    if (aData[0] == ":") {
+      
+    return aMessage;
+
+    // Do we really care about splitting this into nickname/host/user?
+    /*if (aData[0] == ":") {
       // Must split only on spaces here, not any whitespace
       let temp = aData.match(/:([^ ]+) +(.*)/);
       aMessage.source = temp[1];
@@ -191,25 +205,7 @@ Account.prototype = {
         aMessage.user = temp[2];
       }
     } else
-      aMessage.source = this._server;
-  
-    var separator = aData.indexOf(" :");
-
-    if (separator != -1) { // <trailing> param, if there is one
-      var trail = aData.substr(separator + 2, aData.length);
-      // Split other parameters by spaces
-      aMessage.params = aData.substr(0,separator).split(/ +/);
-      aMessage.params.push(trail);
-    } else
-      aMessage.params = aData.split(/ +/);
-    
-    // The first "parameter" is actually the command.
-    if (aMessage.params.length)
-      aMessage.command = aMessage.params.shift();
-      
-    aMessage.paramString = aData.substr(aMessage.command.length).trim();
-  
-    return aMessage;
+      aMessage.source = this._server;*/
   },
   
   _handleMessage: function(aRawMessage) {
