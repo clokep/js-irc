@@ -234,7 +234,7 @@ Account.prototype = {
       case "PRIVMSG":
         if (aMessage.params.length == 2) {
           var aConversation = this._getConversation(aMessage.params[0]);
-          aConversation.writeMessage(aMessage.params[0],
+          aConversation.writeMessage(aMessage.nickname || aMessage.source,
                                      aMessage.params[1],
                                      {incoming: true});
         }
@@ -271,8 +271,10 @@ Account.prototype = {
                                          .replace(']','}')
                                          .replace('\\','|')
                                          .replace('~','^');
-    if (!this._conversations[aConversationName])
+    if (!this._conversations[aConversationName]) {
       this._conversations[aConversationName] = new Conversation(this);
+      // XXX Handle whether its a chat room or a private chat
+    }
     return this._conversations[aConversationName];
   },
   
