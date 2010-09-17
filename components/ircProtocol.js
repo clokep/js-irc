@@ -152,8 +152,6 @@ Account.prototype = {
   },
   
   /*
-   * XXX flo wants to clean up this algorithm, it definitely can be done cleaner
-   *   One regex to pull into the 3 or 4 parts and then .split(/ +/) the params
    * See section 2.3 of RFC 2812
    * 
    * parseMessage takes the message string and pulls useful information out. It
@@ -172,40 +170,21 @@ Account.prototype = {
     let temp;
 
     if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
-      if (temp[1])
-        aMessage.source = temp[1];
-      else
-        aMessage.source = this._server;
+      // Assume from server if not specified
+      aMessage.source = temp[1] || this._server;
       aMessage.command = temp[2];
-      if (temp[3])
-        aMessage.params = temp[3].split(/ +/);
-      else
-        aMessage.params = [];
+      aMessage.params = temp[3] ? temp[3].split(/ +/) : [];
       if (temp[4])
         aMessage.params.push(temp[4]);
+      
+      if ((temp = aMessage.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
+        aMessage.nickname = temp[1];
+        aMessage.user = temp[2] || null; // Optional
+        aMessage.host = temp[3] || null; // Optional
+      }
     }
       
     return aMessage;
-
-    // Do we really care about splitting this into nickname/host/user?
-    /*if (aData[0] == ":") {
-      // Must split only on spaces here, not any whitespace
-      let temp = aData.match(/:([^ ]+) +(.*)/);
-      aMessage.source = temp[1];
-      aData = temp[2];
-      if ((temp = aMessage.source.match(/([^ ]+)!([^ ]+)@(.*)/))) {
-        aMessage.nickname = temp[1];
-        aMessage.user = temp[2];
-        aMessage.host = temp[3];
-      } else if ((temp = aMessage.source.match(/([^ ]+)@(.*)/))) {
-        aMessage.nickname = temp[1];
-        aMessage.host = temp[2];
-      } else if ((temp = aMessage.source.match(/([^ ]+)!(.*)/))) {
-        aMessage.nickname = temp[1];
-        aMessage.user = temp[2];
-      }
-    } else
-      aMessage.source = this._server;*/
   },
   
   _handleMessage: function(aRawMessage) {
