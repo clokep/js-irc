@@ -141,16 +141,29 @@ Account.prototype = {
     this._pump.asyncRead(this, null);
     
     this._connnectionRegistration();
-
-    this.base.connected();
   },
   
   disconnect: function() {
+    this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
+    
     this._outputStream.close();
     this._inputStream.close();
     this.socketTransport.close(Components.results.NS_OK);
   },
   
+  /*
+   * aComponents implements purpleIChatRoomFieldValues
+   */
+  joinChat: function(aComponents) {
+    dump(this.getChatRoomDefaultFieldValue("Test"));
+    dump(JSON.stringify(aComponents));
+    this._base.joinChat(aComponents);
+  },
+  
+  // Attributes
+  get canJoinChat() true,
+  
+  // Private functions
   /*
    * See section 2.3 of RFC 2812
    * 
@@ -187,6 +200,9 @@ Account.prototype = {
     return aMessage;
   },
   
+  /*
+   * Implement Section 5 of RFC 2812
+   */
   _handleMessage: function(aRawMessage) {
     var aMessage = this._parseMessage(aRawMessage);
     dump(JSON.stringify(aMessage));
@@ -196,42 +212,547 @@ Account.prototype = {
     // Handle command responses
     switch (aMessage.command.toUpperCase()) {
       case "ERROR":
-        Cu.reportError(aMessage.rawMessage);
-        dump(aMessage.rawMessage);
+        // ERROR <error message>
+        // Report the error
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.rawMessage,
+                                {system: true, error: true});
+        break;
+      case "MODE":
+        // MODE <nickname *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
+        // XXX keep track of our mode? Display in UI?
         break;
       case "NOTICE":
-        this._conv.writeMessage(this._server,aMessage.paramString,{system: true});
+        // NOTICE <msgtarget> <text>
+        // XXX
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params.concat(" "),
+                                {system: true});
         break;
       case "PING":
+        // PING <server1 [ <server2> ]
         // Keep the connection alive
         this._sendMessage("PONG :" + aMessage.params[0]);
         break;
       case "PRIVMSG":
-        if (aMessage.params.length == 2) {
-          var aConversation = this._getConversation(aMessage.params[0]);
-          aConversation.writeMessage(aMessage.nickname || aMessage.source,
-                                     aMessage.params[1],
-                                     {incoming: true});
-        }
+        // PRIVMSG <msgtarget> <text to be sent>
+        var aConversation = this._getConversation(aMessage.params[0]);
+        aConversation.writeMessage(aMessage.nickname || aMessage.source,
+                                   aMessage.params[1],
+                                   {incoming: true});
         break;
-      // ERR_NONICKNAMEGIVEN
-      // ERR_ERRONEUSNICKNAME
-      // ERR_NICKNAMEINUSE
-      // ERR_UNAVAILRESOURCE
-      // ERR_NICKCOLLISION
-      // ERR_RESTRICTED
+      case "001": // RPL_WELCOME
+        // Welcome to the Internet Relay Network <nick>!<user>@<host>
+        this.base.connected();
+      case "002": // RPL_YOURHOST
+        // Your host is <servername>, running version <ver>
+        // XXX Use the host instead of the user for all the "server" messages?
+      case "003": // RPL_CREATED
+        //This server was created <date>
+        // XXX parse this date and keep it for some reason? Do we care?
+      case "004": // RPL_MYINFO
+        // <servername> <version> <available user modes> <available channel modes>
+        // XXX parse the available modes, let the UI respond and inform the user
+      case "005": // RPL_BOUNCE
+        // Try server <server name>, port <port number>
+        // XXX irc.mozilla.org seems to respond with a list of available
+        //     commands and limits the server supports
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[1],
+                                {system: true});
+        break;
+      case "200": // RPL_TRACELINK
+        // Link <version & debug level> <destination> <next server> V<protocol version> <link updateime in seconds> <backstream sendq> <upstream sendq>
+        // XXX
+      case "201": // RPL_TRACECONNECTING
+        // Try. <class> <server>
+        // XXX
+      case "202": // RPL_TRACEHANDSHAKE
+        // H.S. <class> <server>
+        // XXX
+      case "203": // RPL_TRACEUNKNOWN
+        // ???? <class> [<client IP address in dot form>]
+        // XXX
+      case "204": // RPL_TRACEOPERATOR
+        // Oper <class> <nick>
+        // XXX
+      case "205": // RPL_TRACEUSER
+        // User <class> <nick>
+        // XXX
+      case "206": // RPL_TRACESERVER
+        // Serv <class> <int>S <int>C <server> <nick!user|*!*>@<host|server> V<protocol version>
+        // XXX
+      case "207": // RPL_TRACESERVICE
+        // Service <class> <name> <type> <active type>
+        // XXX
+      case "208": // RPL_TRACENEWTYPE
+        // <newtype> 0 <client name>
+        // XXX
+      case "209": // RPL_TRACECLASS
+        // Class <class> <count>
+        // XXX
+        break;
+      case "210": // RPL_TRACERECONNECTION
+        // Unused.
+        break;
+      case "211": // RPL_STATSLINKINFO
+        // <linkname> <sendq> <sent messages> <sent Kbytes> <received messages> <received Kbytes> <time open>
+        // XXX
+      case "212": // RPL_STATSCOMMAND
+        // <command> <count> <byte count> <remote count>
+        // XXX
+        break;
+      case "213": // RPL_STATSCLINE
+      case "214": // RPL_STATSNLINE
+      case "215": // RPL_STATSILINE
+      case "216": // RPL_STATSKLINE
+      case "217": // RPL_STATSQLINE
+      case "218": // RPL_STATSYLINE
+        // Non-generic
+        break;
+      case "219": // RPL_ENDOFSTATS
+        // <stats letter> :End of STATS report
+        // XXX
+        break;
+      case "221": // RPL_UMODEIS
+        // <user mode string>
+        // XXX update the UI accordingly
+        break;
+      case "231": // RPL_SERVICEINFO
+      case "232": // RPL_ENDOFSERVICES
+      case "233": // RPL_SERVICE
+        // Non-generic
+        break;
+      case "234": // RPL_SERVLIST
+        // <name> <server> <mask> <type> <hopcount> <info>
+        // XXX
+      case "235": // RPL_SERVLISTEND
+        // <mask> <type> :End of service listing
+        // XXX
+        break;
+      case "240": // RPL_STATSVLINE
+      case "241": // RPL_STATSLLINE
+        // Non-generic
+        break;
+      case "242": // RPL_STATSUPTIME
+        // :Server Up %d days %d:%02d:%02d
+        // XXX Do we care?
+      case "243": // RPL_STATSOLINE
+        // O <hostmask> * <name>
+        // XXX display?
+        break;
+      case "244": // RPL_STATSHLINE
+      case "245": // RPL_STATSSLINE
+        // Non-generic
+        break;
+      case "246": // RPL_STATSPING
+      case "247": // RPL_STATSBLINE
+      case "250": // RPL_STATSDLINE
+        // Non-generic
+        break;
+      case "251": // RPL_LUSERCLIENT
+        // :There are <integer> users and <integer> services on <integer> servers
+        // XXX parse this and display in the UI?
+      case "252": // RPL_LUSEROP, 0 if not sent
+        // <integer> :operator(s) online
+        // XXX parse this and display in the UI?
+      case "253": // RPL_LUSERUNKNOWN, 0 if not sent
+        // <integer> :unknown connection(s)
+        // XXX parse this and display in the UI?
+      case "254": // RPL_LUSERCHANNELS, 0 if not sent
+        // <integer> :channels formed
+        // XXX parse this and display in the UI?
+      case "255": // RPL_LUSERME
+        // :I have <integer> clients and <integer> servers
+        // XXX parse this and display in the UI?
+      case "256": // RPL_ADMINME
+        // <server> :Administrative info
+      case "257": // RPL_ADMINLOC1
+        // :<admin info>
+        // City, state & country
+      case "258": // RPL_ADMINLOC2
+        // :<admin info>
+        // Institution details
+      case "259": // RPL_ADMINEMAIL
+        // :<admin info>
+        // XXX parse this for a contact email
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params.slice(1).concat(" "), // skip nickname
+                                {system: true});
+        break;
+      case "261": // RPL_TRACELOG
+        // File <logfile> <debug level>
+        // XXX
+      case "262": // RPL_TRACEEND
+        // <server name> <version & debug level> :End of TRACE"
+        break;
+      case "263": // RPL_TRYAGAIN
+        // <command> :Please wait a while and try again.
+        // XXX setTimeout for a minute or so and try again?
+        break;
+      // case "265": // ???
+        // :Current Local Users: <integer>  Max: <integer>
+        // XXX nonstandard?
+      // case "266": // ???
+        // :Current Global Users: <integer>  Max: <integer>
+        // XXX nonstandard?
+      case "300": // RPL_NONE
+        // Non-generic
+        break;
+      case "301": // RPL_AWAY
+        // <nick> :<away message>
+        this._conv.writeMessage(this._getConversation(aMessage.params[0]),
+                                aMessage.params[1],
+                                {system: true});
+        // XXX set user as away on buddy list / conversation lists
+        break;
+      case "302": // RPL_USERHOST
+        // :*1<reply> *( " " <reply )"
+        // reply = nickname [ "*" ] "=" ( "+" / "-" ) hostname
+        // XXX What do we do?
+      case "303": // RPL_ISON
+        // :*1<nick> *( " " <nick> )"
+        // XXX Need to update the buddy list once that's implemented
+      case "305": // RPL_NOAWAY
+        // :You are no longer marked as being away
+        // XXX Update buddy list / conversation lists
+      case "306": // RPL_NOWAWAY
+        // :You have been marked as away
+        // XXX Update buddy list / conversation lists
+        break;
+      case "311": // RPL_WHOISUSER
+        // <nick> <user> <host> * :<real name>
+        // XXX update user info
+      case "312": // RPL_WHOISSERVER
+        // <nick> <server> :<server info>
+        // XXX update server info? Do nothing? Why would we ever receive this?
+      case "313": // RPL_WHOISOPERATOR
+        // <nick> :is an IRC operator
+        // XXX update UI with operator status
+      case "314": // RPL_WHOWASUSER
+        // <nick> <user> <host> * :<real name>
+        // XXX user isn't online anyway, so do we care?
+      case "315": // RPL_ENDOFWHO
+        // <name> :End of WHO list
+        // XXX
+        break;
+      case "300": // RPL_WHOISCHANOP
+        // Non-generic
+        break;
+      case "317": // RPL_WHOISIDLE
+        // <nick> <integer> :seconds idle
+        // XXX update UI with user's idle status
+      case "318": // RPL_ENDOFWHOIS
+        // <nick> :End of WHOIS list
+      case "319": // RPL_WHOISCHANNELS
+        // <nick> :*( ( "@" / "+" ) <channel> " " )
+        // XXX update UI with voice or operator status
+        break;
+      case "321": // RPL_LISTSTART
+        // Obsolete. Not used.
+        break;
+      case "322": // RPL_LIST
+        // <channel> <# visible> :<topic>
+        // XXX parse this for # users & topic
+        break;
+      case "323": // RPL_LISTEND
+        // :End of LIST
+        break;
+      case "324": // RPL_CHANNELMODEIS
+        // <channel> <mode> <mode params>
+        // XXX parse this and have the UI respond accordingly
+        break;
+      case "325": // RPL_UNIQOPIS
+        // <channel> <nickname>
+        // XXX parse this and have the UI respond accordingly
+        break;
+      case "331": // RPL_NOTOPIC
+        // <channel> :No topic is set
+        // XXX Do nothing I think?
+        break;
+      case "332": // RPL_TOPIC
+        // <channel> :topic
+        // XXX Display topic for channel
+        break;
+      case "341": // RPL_INVITING
+        // <channel> <nick>
+        // XXX invite successfully sent? Display this?
+        break;
+      case "342": // RPL_SUMMONING
+        // <user> :Summoning user to IRC
+        // XXX is this server only?
+        break;
+      case "346": // RPL_INVITELIST
+        // <chanel> <invitemask>
+        // XXX what do we do?
+      case "347": // RPL_ENDOFINVITELIST
+        // <channel> :End of channel invite list
+        // XXX what do we do?
+        break;
+      case "348": // RPL_EXCEPTLIST
+        // <channel> <exceptionmask>
+      case "349": // RPL_ENDOFEXCEPTIONLIST
+        // <channel> :End of channel exception list
+        // XXX update UI?
+        break;
+      case "351": // RPL_VERSION
+        // <version>.<debuglevel> <server> :<comments>
+        // XXX Do we care?
+        break;
+      case "352": // RPL_WHOREPLY
+        // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ("@" / "+" ) ] :<hopcount> <real name>
+        // XXX
+        break;
+      case "353": // RPL_NAMREPLY
+        // ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
+        // XXX Keep this for the join chat list
+        break;
+      case "361": // RPL_KILLDONE
+      case "362": // RPL_CLOSING
+      case "363": // RPL_CLOSEEND
+        // Non-generic
+        break;
+      case "364": // RPL_LINKS
+        // <mask> <server> :<hopcount> <server info>
+        // XXX
+      case "365": // RPL_ENDOFLINKS
+        // <mask> :End of LINKS list
+        // XXX
+        break;
+      case "366": // RPL_ENDOFNAMES
+        // <channel> :End of NAMES list
+        // XXX use with 353 RPL_NAMREPLY
+        break;
+      case "367": // RPL_BANLIST
+        // <channel> <banmask>
+        // XXX
+      case "368": // RPL_ENDOFBANLIST
+        // <channel> :End of channel ban list
+        // XXX
+        break;
+      case "369": // RPL_ENDOFWHOWAS
+        // <nick> :End of WHOWAS
+        break;
+      case "371": // RPL_INFO
+        // :<string>
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[1],
+                                {system: true});
+        break;
+      case "372": // RPL_MOTD
+        // :- <text>
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[1].slice(2),
+                                {incoming: true});
+        break;
+      case "373": // RPL_INFOSTART
+        // Non-generic
+        break;
+      case "374": // RPL_ENDOFINFO
+        // :End of INFO list
+        break;
+      case "375": // RPL_MOTDSTART
+        // :- <server> Message of the day -
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[1].slice(2,-2),
+                                {incoming: true});
+        break;
+      case "376": // RPL_ENDOFMOTD
+        // :End of MOTD command
+        break;
+      case "381": // RPL_YOUREOPER
+        // :You are now an IRC operator
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[0],
+                                {system: true});
+        // XXX update UI accordingly to show oper status
+        break;
+      case "382": // RPL_REHASHING
+        // <config file> :Rehashing
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params.concat(" "),
+                                {system: true});
+        break;
+      case "383": // RPL_YOURESERVICE
+        // You are service <servicename>
+        // XXX Could this ever happen?
+        break;
+      case "384": // RPL_MYPORTIS
+        // Non-generic
+        break;
+      case "391": // RPL_TIME
+        // <server> :<string showing server's local time>
+        // XXX parse date string & store or just show it?
+        break;
+      case "392": // RPL_USERSSTART
+        // :UserID   Terminal  Host
+        // XXX
+      case "393": // RPL_USERS
+        // :<username> <ttyline> <hostname>
+        // XXX store into buddy list
+      case "394": // RPL_ENDOFUSERS
+        // :End of users
+        // XXX
+        break;
+      case "395": // RPL_NOUSERS
+        // :Nobody logged in
+        // XXX clear buddy list
+
+      // Error messages, Implement Section 5.2 of RFC 2812
+      case "401": // ERR_NOSUCHNICK
+        // <nickname> :No such nick/channel
+        // XXX Error saying the nick doesn't exist?
+      case "402": // ERR_NOSUCHSERVER
+        // <server name> :No such server
+        // XXX Error saying the server doesn't exist?
+      case "403": // ERR_NOSUCHCHANNEL
+        // <channel name> :No such channel
+        // XXX Error saying channel doesn't exist?
+      case "404": // ERR_CANNONTSENDTOCHAN
+        // <channel name> :Cannot send to channel
+        // XXX handle that the channel didn't receive the message
+      case "405": // ERR_TOOMANYCHANNELS
+        // <channel name> :You have joined too many channels
+        // XXX Error saying too many channels?
+      case "406": // ERR_WASNOSUCHNICK
+        // <nickname> :There was no such nickname
+        // XXX Error saying the nick never existed
+      case "407": // ERR_TOOMANYTARGETS
+        // <target> :<error code> recipients. <abord message>
+      case "408": // ERR_NOSUCHSERVICE
+        // <service name> :No such service
+      case "409": // ERR_NOORIGIN
+        // :No origin specified
+        // XXX failed PING/PONG message, this should never occur
+        break;
+      case "411": // ERR_NORECIPIENT
+        // :No recipient given (<command>)
+        // XXX This should never happen.
+        break;
+      case "412": // ERR_NOTEXTTOSEND
+        // :No text to send
+        // XXX this shouldn't happen?
+        break;
+      case "413": // ERR_NOTOPLEVEL
+        // <mask> :No toplevel domain specified
+      case "414": // ERR_WILDTOPLEVEL
+        // <mask> :Wildcard in toplevel domain
+      case "415": // ERR_BADMASK
+        // <mask> :Bad Server/host mask
+        break;
+      case "421": // ERR_UNKNOWNCOMMAND
+        // <command> :Unknown command
+        // XXX This shouldn't occur
+        break;
+      case "422": // ERR_NOMOTD
+        // :MOTD File is missing
+        break;
+      case "423": // ERR_NOADMININFO
+        // <server> :No administrative info available
+        break;
+      case "424": // ERR_FILEERROR
+        // :File error doing <file op> on <file>
+      case "431": // ERR_NONICKNAMEGIVEN
+        // :No nickname given
+      case "432": // ERR_ERRONEUSNICKNAME
+        // <nick> :Erroneous nickname
+        // XXX Prompt user for new nick? Autoclean characters?
+      case "433": // ERR_NICKNAMEINUSE
+        // <nick> :Nickname is already in use
+        // XXX add 1 or increment last digit of nickname
+      case "436": // ERR_NICKCOLLISION
+        // <nick> :Nickname collision KILL from <user>@<host>
+      case "437": // ERR_UNAVAILRESOURCE
+        // <nick/channel> :Nick/channel is temporarily unavailable
+      case "441": // ERR_USERNOTINCHANNEL
+        // <nick> <channel> :They aren't on that channel
+      case "442": // ERR_NOTONCHANNEL
+        // <channel> :You're not on that channel
+      case "443": // ERR_USERONCHANNEL
+        // <user> <channel> :is already on channel
+      case "444": // ERR_NOLOGIN
+        // <user> :User not logged in
+      case "445": // ERR_SUMMONDISABLED
+        // :SUMMON has been disabled
+        // XXX keep track of this and disable UI associated?
+      case "446": // ERR_USERSDISABLED
+        // :USERS has been disabled
+        // XXX Disabled all buddy list etc.
+      case "451": // ERR_NOTREGISTERED
+        // :You have not registered
+        // XXX We shouldn't get this?
       case "461": // ERR_NEEDMOREPARAMS
-        //<command> :Not enough parameters
-        Cu.reportError(aMessage.paramString);
-        dump(aMessage.rawMessage);
+        // <command> :Not enough parameters
       case "462": // ERR_ALREADYREGISTERED
-        Cu.reportError(aMessage.paramString);
-        dump(aMessage.rawMessage);
+        // :Unauthorized command (already registered)
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.rawMessage,
+                                {system: true, error: true});
         break;
-      // RPL_WELCOME -- we're authed
+      case "463": // ERR_NOPERMFORHOST
+        // :Your host isn't among the privileged
+      case "464": // ERR_PASSWDMISMATCH
+        // :Password incorrect
+        // XXX prompt user for new password
+      case "465": // ERR_YOUREBANEDCREEP
+        // :You are banned from this server
+      case "466": // ERR_YOUWILLBEBANNED
+        this.disconnect(); // XXX no reason to be connected if we can't do anything
+        break;
+      case "467": // ERR_KEYSET
+        // <channel> :Channel key already set
+      case "471": // ERR_CHANNELISFULL
+        // <channel> :Cannot join channel (+l)
+      case "472": // ERR_UNKNOWNMODE
+        // <char> :is unknown mode char to me for <channel>
+      case "473": // ERR_INVITEONLYCHAN
+        // <channel> :Cannot join channel (+i)
+      case "474": // ERR_BANNEDFROMCHAN
+        // <channel> :Cannot join channel (+b)
+      case "475": // ERR_BADCHANNELKEY
+        // <channel> :Cannot join channel (+k)
+        // XXX need to inform user
+        break;
+      case "476": // ERR_BADCHANMASK
+        // <channel> :Bad Channel Mask
+      case "477": // ERR_NOCHANMODES
+        // <channel> :Channel doesn't support modes
+      case "478": // ERR_BANLISTFULL
+        // <channel> <char> :Channel list is full
+      case "481": // ERR_NOPRIVILEGES
+        // :Permission Denied- You're not an IRC operator
+        // XXX ask to auth?
+        break;
+      case "482": // ERR_CHANOPRIVSNEEDED
+        // <channel> :You're not channel operator
+        // XXX ask for auth?
+        break;
+      case "483": // ERR_CANTKILLSERVER
+        // :You can't kill a server!
+        // XXX?
+      case "484": // ERR_RESTRICTED
+        // :Your connection is restricted!
+        // Indicates user mode +r
+      case "485": // ERR_UNIQOPPRIVSNEEDED
+        // :You're not the original channel operator
+        // XXX ask to auth?
+      case "491": // ERR_NOOPERHOST
+        // :No O-lines for your host
+        // XXX
+      case "492": //ERR_NOSERVICEHOST
+        // Non-generic
+        break;
+      case "501": // ERR_UMODEUNKNOWNFLAGS
+        // :Unknown MODE flag
+        // XXX could this happen?
+      case "502": // ERR_USERSDONTMATCH
+        // :Cannot change mode for other users
       default:
         // Output it for debug
-        this._conv.writeMessage(this._server,aMessage.rawMessage,{incoming: true});
+        dump("Unhandled: " + aMessage.rawMessage);
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.rawMessage,
+                                {incoming: true});
         break; // Do nothing
     }
   },
@@ -253,7 +774,7 @@ Account.prototype = {
     return this._conversations[aConversationName];
   },
   
-  _sendMessage: function(aMessage, aConversation) {
+  _sendMessage: function(aMessage) {
     aMessage += "\r\n";
     dump("Sending... " + aMessage);
     this._outputStream.write(aMessage, aMessage.length);
