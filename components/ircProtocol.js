@@ -186,7 +186,7 @@ Account.prototype = {
       // Assume from server if not specified
       aMessage.source = temp[1] || this._server;
       aMessage.command = temp[2];
-      aMessage.params = temp[3] ? temp[3].split(/ +/) : [];
+      aMessage.params = temp[3] ? temp[3].trim().split(/ +/) : [];
       if (temp[4])
         aMessage.params.push(temp[4]);
       
@@ -218,6 +218,24 @@ Account.prototype = {
                                 aMessage.rawMessage,
                                 {system: true, error: true});
         break;
+      case "INVITE":
+        // INVITE  <nickname> <channel>
+        // XXX prompt user to join channel
+        break;
+      case "JOIN":
+        // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
+        // XXX display join messages from users
+        break;
+      case "KICK":
+        // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
+        var usersNames = params[1].split(",");
+        for (var aChannelName in aMessage.params[0].split(",")) {
+          var aConversation = this._getConversation(aChannelName);
+          for (var aUsername in usersNames)
+            aConversation.writeMessage(aMessage.source,
+                                       aMessage.params[2] || (aUsername + " has been kicked."),
+                                       {system: true});
+        }
       case "MODE":
         // MODE <nickname *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
         // XXX keep track of our mode? Display in UI?
@@ -228,6 +246,16 @@ Account.prototype = {
         this._conv.writeMessage(aMessage.source,
                                 aMessage.params.concat(" "),
                                 {system: true});
+        break;
+      case "PART":
+        // PART <channel> *( "," <channel> ) [ <Part Message> ]
+        // XXX display part messages from users
+        for (var aChannelName in aMessage.params[0].split(",")) {
+          var aConversation = this._getConversation(aChannelName);
+          aConversation.writeMessage(aMessage.source,
+                                     aMessage.params[1] || "has parted.",
+                                     {system: true});
+        }
         break;
       case "PING":
         // PING <server1 [ <server2> ]
@@ -240,6 +268,17 @@ Account.prototype = {
         aConversation.writeMessage(aMessage.nickname || aMessage.source,
                                    aMessage.params[1],
                                    {incoming: true});
+        break;
+      case "QUIT":
+        // QUIT [ < Quit Message> ]
+        // XXX Needs to loop over every conversation with the user and display that they quit
+        break;
+      case "SQUIT":
+        // XXX do we need this?
+        break;
+      case "TOPIC":
+        // TOPIC <channel> [ <topic> ]
+        // XXX update UI with topic
         break;
       case "001": // RPL_WELCOME
         // Welcome to the Internet Relay Network <nick>!<user>@<host>
@@ -258,7 +297,7 @@ Account.prototype = {
         // XXX irc.mozilla.org seems to respond with a list of available
         //     commands and limits the server supports
         this._conv.writeMessage(aMessage.source,
-                                aMessage.params[1],
+                                aMessage.params.slice(1).concat(" "),
                                 {system: true});
         break;
       case "200": // RPL_TRACELINK
@@ -401,9 +440,10 @@ Account.prototype = {
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
-        this._conv.writeMessage(this._getConversation(aMessage.params[0]),
-                                aMessage.params[1],
-                                {system: true});
+        var aConversation = this._getConversation(aMessage.params[0])
+        aConversation.writeMessage(aMessage.params[0],
+                                   aMessage.params[1],
+                                   {system: true});
         // XXX set user as away on buddy list / conversation lists
         break;
       case "302": // RPL_USERHOST
