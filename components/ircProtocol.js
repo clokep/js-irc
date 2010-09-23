@@ -702,6 +702,12 @@ Account.prototype = {
         // XXX add 1 or increment last digit of nickname
       case "436": // ERR_NICKCOLLISION
         // <nick> :Nickname collision KILL from <user>@<host>
+        // Take the returned nick and increment the last character
+        this.name = aMessage.params[0].slice(0, -1) +
+          String.fromCharCode(
+            aMessage.params[0].charCodeAt(aMessage.params[0].length - 1) + 1
+          );
+        this._sendMessage("NICK " + this.name); // Nick message
       case "437": // ERR_UNAVAILRESOURCE
         // <nick/channel> :Nick/channel is temporarily unavailable
       case "441": // ERR_USERNOTINCHANNEL
