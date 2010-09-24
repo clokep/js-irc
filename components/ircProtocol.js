@@ -220,9 +220,6 @@ Account.prototype = {
         aMessage.host = temp[3] || null; // Optional
       }
     }
-
-    dump(JSON.stringify(aMessage));
-
     return aMessage;
   },
   
@@ -456,18 +453,18 @@ Account.prototype = {
         // <command> :Please wait a while and try again.
         // XXX setTimeout for a minute or so and try again?
         break;
-      // case "265": // ???
+      case "265": // XXX nonstandard
         // :Current Local Users: <integer>  Max: <integer>
-        // XXX nonstandard?
-      // case "266": // ???
+      case "266": // XXX nonstandard
         // :Current Global Users: <integer>  Max: <integer>
-        // XXX nonstandard?
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.params[1], // skip nickname
+                                {system: true});
       case "300": // RPL_NONE
         // Non-generic
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
-        break; // XXXREMOVE
         var aConversation = this._getConversation(aMessage.params[0])
         aConversation.writeMessage(aMessage.params[0],
                                    aMessage.params[1],
@@ -609,9 +606,10 @@ Account.prototype = {
         break;
       case "372": // RPL_MOTD
         // :- <text>
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params[1].slice(2),
-                                {incoming: true});
+        if (aMessage.params[1].length > 2) // Ignore empty messages
+          this._conv.writeMessage(aMessage.source,
+                                  aMessage.params[1].slice(2),
+                                  {incoming: true});
         break;
       case "373": // RPL_INFOSTART
         // Non-generic
