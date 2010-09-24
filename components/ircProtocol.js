@@ -66,6 +66,30 @@ function dump(str) {
     .logStringMessage(str);
 }
 
+const GenericChatConversationPrototype = {
+  _participants: [],
+
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
+  getIterfaces: function (countRef) {
+    var interfaces = [
+      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvChat
+    ];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  
+  get isChat() true,
+  getParticipants: function() {
+    // write some generic magic here that gives the result based on a JS object or array you put in the object, _participants for example :)},
+    return nsSimpleEnumerator(_participants);
+  },
+  get topic() "Topic",
+  get topicSetter() "Topic Setter",
+  get left() false
+  // XXX (other purpleIConvChat stuff)
+};
+GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
+
 function Conversation(aAccount) {
   this._init(aAccount);
 }
@@ -196,6 +220,8 @@ Account.prototype = {
         aMessage.host = temp[3] || null; // Optional
       }
     }
+    
+    dump(JSON.stringify(aMessage));
       
     return aMessage;
   },
@@ -813,10 +839,11 @@ Account.prototype = {
                                          .replace(']','}')
                                          .replace('\\','|')
                                          .replace('~','^');
-    if (!this._conversations[aConversationName]) {
-      this._conversations[aConversationName] = new Conversation(this);
-      // XXX Handle whether its a chat room or a private chat
-    }
+    if (!this._conversations[aConversationName])
+      if (aConversationName.charAt(0).indexOf("&#+!") != -1)
+        this._conversations[aConversationName] = new Chat(this);
+      else
+        this._conversations[aConversationName] = new Conversation(this);
     return this._conversations[aConversationName];
   },
   
