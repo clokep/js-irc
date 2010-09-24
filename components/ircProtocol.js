@@ -134,8 +134,6 @@ Account.prototype = {
     let self = this;
     this._conv = new Conversation(self); // XXX Remove me eventually
     this._conv.writeMessage(this._server, "You're now chatting on IRC!", {system: true});
-    
-    return;
 
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
     this._socketTransport = socketTransportService.createTransport(null, // Socket type
@@ -222,9 +220,9 @@ Account.prototype = {
         aMessage.host = temp[3] || null; // Optional
       }
     }
-    
+
     dump(JSON.stringify(aMessage));
-      
+
     return aMessage;
   },
   
@@ -273,7 +271,7 @@ Account.prototype = {
         // NOTICE <msgtarget> <text>
         // XXX
         this._conv.writeMessage(aMessage.source,
-                                aMessage.params.concat(" "),
+                                aMessage.params.join(" "),
                                 {system: true});
         break;
       case "PART":
@@ -326,7 +324,7 @@ Account.prototype = {
         // XXX irc.mozilla.org seems to respond with a list of available
         //     commands and limits the server supports
         this._conv.writeMessage(aMessage.source,
-                                aMessage.params.slice(1).concat(" "),
+                                aMessage.params.slice(1).join(" "),
                                 {system: true});
         break;
       case "200": // RPL_TRACELINK
@@ -445,7 +443,7 @@ Account.prototype = {
         // :<admin info>
         // XXX parse this for a contact email
         this._conv.writeMessage(aMessage.source,
-                                aMessage.params.slice(1).concat(" "), // skip nickname
+                                aMessage.params.slice(1).join(" "), // skip nickname
                                 {system: true});
         break;
       case "261": // RPL_TRACELOG
@@ -640,7 +638,7 @@ Account.prototype = {
       case "382": // RPL_REHASHING
         // <config file> :Rehashing
         this._conv.writeMessage(aMessage.source,
-                                aMessage.params.concat(" "),
+                                aMessage.params.join(" "),
                                 {system: true});
         break;
       case "383": // RPL_YOURESERVICE
