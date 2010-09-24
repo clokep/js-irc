@@ -134,6 +134,8 @@ Account.prototype = {
     let self = this;
     this._conv = new Conversation(self); // XXX Remove me eventually
     this._conv.writeMessage(this._server, "You're now chatting on IRC!", {system: true});
+    
+    return;
 
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
     this._socketTransport = socketTransportService.createTransport(null, // Socket type
@@ -262,6 +264,7 @@ Account.prototype = {
                                        aMessage.params[2] || (aUsername + " has been kicked."),
                                        {system: true});
         }
+        break;
       case "MODE":
         // MODE <nickname *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
         // XXX keep track of our mode? Display in UI?
@@ -466,6 +469,7 @@ Account.prototype = {
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
+        break; // XXXREMOVE
         var aConversation = this._getConversation(aMessage.params[0])
         aConversation.writeMessage(aMessage.params[0],
                                    aMessage.params[1],
@@ -726,6 +730,7 @@ Account.prototype = {
       case "433": // ERR_NICKNAMEINUSE
         // <nick> :Nickname is already in use
         // XXX add 1 or increment last digit of nickname
+        break;
       case "436": // ERR_NICKCOLLISION
         // <nick> :Nickname collision KILL from <user>@<host>
         // Take the returned nick and increment the last character
@@ -734,6 +739,8 @@ Account.prototype = {
             aMessage.params[0].charCodeAt(aMessage.params[0].length - 1) + 1
           );
         this._sendMessage("NICK " + this.name); // Nick message
+        // XXX inform user?
+        break;
       case "437": // ERR_UNAVAILRESOURCE
         // <nick/channel> :Nick/channel is temporarily unavailable
       case "441": // ERR_USERNOTINCHANNEL
@@ -757,10 +764,6 @@ Account.prototype = {
         // <command> :Not enough parameters
       case "462": // ERR_ALREADYREGISTERED
         // :Unauthorized command (already registered)
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.rawMessage,
-                                {system: true, error: true});
-        break;
       case "463": // ERR_NOPERMFORHOST
         // :Your host isn't among the privileged
       case "464": // ERR_PASSWDMISMATCH
@@ -768,6 +771,11 @@ Account.prototype = {
         // XXX prompt user for new password
       case "465": // ERR_YOUREBANEDCREEP
         // :You are banned from this server
+        // XXX Disconnect account?
+        this._conv.writeMessage(aMessage.source,
+                              aMessage.rawMessage,
+                              {error: true});
+        break;
       case "466": // ERR_YOUWILLBEBANNED
         this.disconnect(); // XXX no reason to be connected if we can't do anything
         break;
@@ -784,7 +792,6 @@ Account.prototype = {
       case "475": // ERR_BADCHANNELKEY
         // <channel> :Cannot join channel (+k)
         // XXX need to inform user
-        break;
       case "476": // ERR_BADCHANMASK
         // <channel> :Bad Channel Mask
       case "477": // ERR_NOCHANMODES
@@ -794,11 +801,9 @@ Account.prototype = {
       case "481": // ERR_NOPRIVILEGES
         // :Permission Denied- You're not an IRC operator
         // XXX ask to auth?
-        break;
       case "482": // ERR_CHANOPRIVSNEEDED
         // <channel> :You're not channel operator
         // XXX ask for auth?
-        break;
       case "483": // ERR_CANTKILLSERVER
         // :You can't kill a server!
         // XXX?
@@ -813,12 +818,15 @@ Account.prototype = {
         // XXX
       case "492": //ERR_NOSERVICEHOST
         // Non-generic
-        break;
       case "501": // ERR_UMODEUNKNOWNFLAGS
         // :Unknown MODE flag
         // XXX could this happen?
       case "502": // ERR_USERSDONTMATCH
         // :Cannot change mode for other users
+        this._conv.writeMessage(aMessage.source,
+                                aMessage.rawMessage,
+                                {error: true});
+        break;
       default:
         // Output it for debug
         dump("Unhandled: " + aMessage.rawMessage);
