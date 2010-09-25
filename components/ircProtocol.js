@@ -68,6 +68,7 @@ function dump(str) {
 
 const GenericChatConversationPrototype = {
   _participants: [],
+  _name: "Chat Conversation",
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getIterfaces: function (countRef) {
@@ -83,6 +84,7 @@ const GenericChatConversationPrototype = {
     // write some generic magic here that gives the result based on a JS object or array you put in the object, _participants for example :)},
     return nsSimpleEnumerator(_participants);
   },
+  get name() this._name,
   get topic() "Topic",
   get topicSetter() "Topic Setter",
   get left() false
@@ -90,15 +92,32 @@ const GenericChatConversationPrototype = {
 };
 GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
 
-function Conversation(aAccount) {
+function Chat(aAccount, aName) {
   this._init(aAccount);
+  this._name = aName;  
+}
+Chat.prototype = {
+  sendMsg: function(aMessage) {
+    this.account._sendMessage("PRIVMSG " + this.name + ":" + aMessage);
+    this.writeMessage(this.account.name,
+                      aMessage,
+                      {outgoing: true});
+  }
+}
+Chat.__proto__ = GenericChatConversationPrototype;
+
+function Conversation(aAccount, aName) {
+  this._init(aAccount);
+  this._name = aName;
 }
 Conversation.prototype = {
   sendMsg: function(aMessage) {
     this.account._sendMessage(aMessage);
-    this.writeMessage(this.account.name, aMessage, {outgoing: true});
+    this.writeMessage(this.account.name,
+                      aMessage,
+                      {outgoing: true});
   },
-  get name() this.account._server
+  get name() this._name
 };
 Conversation.prototype.__proto__ = GenericConversationPrototype;
 
@@ -132,7 +151,7 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
     let self = this;
-    this._conv = new Conversation(self); // XXX Remove me eventually
+    this._conv = new Conversation(self, this._server); // XXX Remove me eventually
     this._conv.writeMessage(this._server, "You're now chatting on IRC!", {system: true});
 
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
@@ -838,17 +857,18 @@ Account.prototype = {
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
-    aConversationName = aConversationName.toLowerCase()
-                                         .replace('[','{')
-                                         .replace(']','}')
-                                         .replace('\\','|')
-                                         .replace('~','^');
-    if (!this._conversations[aConversationName])
-      if (aConversationName.charAt(0).indexOf("&#+!") != -1)
-        this._conversations[aConversationName] = new Chat(this);
+    let aNormalizedConversationName = aConversationName.toLowerCase()
+                                                       .replace('[','{')
+                                                       .replace(']','}')
+                                                       .replace('\\','|')
+                                                       .replace('~','^');
+    dump("Getting: " + aConversationName);
+    if (!this._conversations[aNormalizedConversationName])
+      if ("&#+!".indexOf(aNormalizedConversationName.charAt(0)) != -1)
+        this._conversations[aNormalizedConversationName] = new Chat(this, aConversationName);
       else
-        this._conversations[aConversationName] = new Conversation(this);
-    return this._conversations[aConversationName];
+        this._conversations[aNormalizedConversationName] = new Conversation(this, aConversationName);
+    return this._conversations[aNormalizedConversationName];
   },
   
   _sendMessage: function(aMessage) {
