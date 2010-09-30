@@ -78,7 +78,7 @@ const GenericChatConversationPrototype = {
     countRef.value = interfaces.length;
     return interfaces;
   },
-  
+
   get isChat() true,
   getParticipants: function() {
     // write some generic magic here that gives the result based on a JS object or array you put in the object, _participants for example :)},
@@ -89,12 +89,13 @@ const GenericChatConversationPrototype = {
   get topicSetter() "Topic Setter",
   get left() false
   // XXX (other purpleIConvChat stuff)
+  // Needs this.buddies[name]
 };
 GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
 
 function Chat(aAccount, aName) {
   this._init(aAccount);
-  this._name = aName;  
+  this._name = aName;
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
@@ -104,7 +105,7 @@ Chat.prototype = {
                       {outgoing: true});
   }
 }
-Chat.__proto__ = GenericChatConversationPrototype;
+Chat.prototype.__proto__ = GenericChatConversationPrototype;
 
 function Conversation(aAccount, aName) {
   this._init(aAccount);
@@ -862,7 +863,6 @@ Account.prototype = {
                                                        .replace(']','}')
                                                        .replace('\\','|')
                                                        .replace('~','^');
-    dump("Getting: " + aConversationName);
     if (!this._conversations[aNormalizedConversationName])
       if ("&#+!".indexOf(aNormalizedConversationName.charAt(0)) != -1)
         this._conversations[aNormalizedConversationName] = new Chat(this, aConversationName);
