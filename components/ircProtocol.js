@@ -66,6 +66,27 @@ function dump(str) {
     .logStringMessage(str);
 }
 
+const GenericConvChatBuddyPrototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
+  getIterfaces: function (countRef) {
+    var interfaces = [
+      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConvChatBuddy
+    ];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+
+  name: "ConvChatBuddy",
+  alias: "Alias",
+
+  get noFlags() !(voiced || halfOp || op || founder || typing),
+  voiced: false,
+  halfOp: false,
+  op: false,
+  founder: false,
+  typing: false
+}
+
 const GenericChatConversationPrototype = {
   _participants: [],
   _name: "Chat Conversation",
@@ -81,8 +102,11 @@ const GenericChatConversationPrototype = {
 
   get isChat() true,
   getParticipants: function() {
-    // write some generic magic here that gives the result based on a JS object or array you put in the object, _participants for example :)},
-    return nsSimpleEnumerator(_participants);
+    // write some generic magic here that gives the result based on a JS object
+    // or array you put in the object, _participants for example :)
+    for (let participant in this._participants)
+      this._participants[participant].prototype.__proto__ = GenericConvChatBuddyPrototype;
+    return nsSimpleEnumerator(this._participants);
   },
   get name() this._name,
   get topic() "Topic",
