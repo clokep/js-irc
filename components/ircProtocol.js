@@ -58,64 +58,14 @@ var Ci = Components.interfaces;
 var Cu = Components.utils;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource:///modules/jsProtoHelper.jsm");
+//Cu.import("resource:///modules/jsProtoHelper.jsm");
+Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 
 function dump(str) {
   Cc["@mozilla.org/consoleservice;1"]
     .getService(Ci.nsIConsoleService)
     .logStringMessage(str);
 }
-
-const GenericConvChatBuddyPrototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
-  getIterfaces: function (countRef) {
-    var interfaces = [
-      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConvChatBuddy
-    ];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
-
-  name: "ConvChatBuddy",
-  alias: "Alias",
-
-  get noFlags() !(voiced || halfOp || op || founder || typing),
-  voiced: false,
-  halfOp: false,
-  op: false,
-  founder: false,
-  typing: false
-}
-
-const GenericChatConversationPrototype = {
-  _participants: [],
-  _name: "Chat Conversation",
-
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
-  getIterfaces: function (countRef) {
-    var interfaces = [
-      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvChat
-    ];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
-
-  get isChat() true,
-  getParticipants: function() {
-    // write some generic magic here that gives the result based on a JS object
-    // or array you put in the object, _participants for example :)
-    for (let participant in this._participants)
-      this._participants[participant].prototype.__proto__ = GenericConvChatBuddyPrototype;
-    return nsSimpleEnumerator(this._participants);
-  },
-  get name() this._name,
-  get topic() "Topic",
-  get topicSetter() "Topic Setter",
-  get left() false
-  // XXX (other purpleIConvChat stuff)
-  // Needs this.buddies[name]
-};
-GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
 
 function Chat(aAccount, aName) {
   this._init(aAccount);
@@ -162,6 +112,7 @@ Account.prototype = {
   _port: 6667,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
   _realname: "clokep",
+  _buddies: {},
 
   // Data listener object
   onStartRequest: function(request, context) { },
@@ -291,6 +242,8 @@ Account.prototype = {
         break;
       case "JOIN":
         // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
+        if (aMessage.nickname == this.name) // Successfully joined a room
+          this._getConversation(aMessage.params[0]); // Open the conversation
         // XXX display join messages from users
         break;
       case "KICK":
@@ -581,8 +534,10 @@ Account.prototype = {
         break;
       case "332": // RPL_TOPIC
         // <channel> :topic
-        // XXX Display topic for channel
+        var aConversation = this._getConversation(aMessage.params[1]);
+        aConversation.setTopic(aMessage.params[2]); // XXX Not settable right now
         break;
+      // case "333": // XXX nonstandard
       case "341": // RPL_INVITING
         // <channel> <nick>
         // XXX invite successfully sent? Display this?
@@ -614,7 +569,13 @@ Account.prototype = {
         break;
       case "353": // RPL_NAMREPLY
         // ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
-        // XXX Keep this for the join chat list
+        // XXX Keep if this is secret (@), private (*) or public (=)
+        var aConversation = this._getConversation(aMessage.params[2]);
+        aMessage.params[3].split(" ").forEach(function(aNickname) {
+          aConversation._participants.push(new ConvChatBuddy(aNickname));
+          if (!this_buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
+            this._buddies[aNickname] = {}; // XXX new Buddy()?
+        });
         break;
       case "361": // RPL_KILLDONE
       case "362": // RPL_CLOSING
@@ -882,6 +843,7 @@ Account.prototype = {
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
+    // XXX Move this to a function
     let aNormalizedConversationName = aConversationName.toLowerCase()
                                                        .replace('[','{')
                                                        .replace(']','}')
