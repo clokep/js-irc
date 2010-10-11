@@ -73,7 +73,7 @@ function Chat(aAccount, aName) {
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG " + this.name + ":" + aMessage);
+    this.account._sendMessage("PRIVMSG", this.name, [aMessage]);
     this.writeMessage(this.account.name,
                       aMessage,
                       {outgoing: true});
@@ -124,7 +124,20 @@ Account.prototype = {
         this._handleMessage(data[i]);
   },
   
-  connect: function() {
+  connect: function() {/*
+    var self = this;
+    setTimeout(function() {
+      self._conv = new Chat(self, "Test!");
+      //this._conv.sendMsg("Testing");
+      self._conv.writeMessage("Yo",
+                              "Some message",
+                              {outgoing: true});
+      dump("Done");
+    }, 100);
+    
+    return; // DEBUG
+  */
+    
     this.base.connecting();
     let self = this;
     this._conv = new Conversation(self, this._server); // XXX Remove me eventually
@@ -281,7 +294,9 @@ Account.prototype = {
       case "PING":
         // PING <server1 [ <server2> ]
         // Keep the connection alive
-        this._sendMessage("PONG :" + aMessage.params[0]);
+        dump("PONG?");
+        this._sendMessage("PONG", [aMessage.params[0]]);
+        dump("PONG!");
         break;
       case "PRIVMSG":
         // PRIVMSG <msgtarget> <text to be sent>
@@ -739,7 +754,7 @@ Account.prototype = {
           String.fromCharCode(
             aMessage.params[0].charCodeAt(aMessage.params[0].length - 1) + 1
           );
-        this._sendMessage("NICK " + this.name); // Nick message
+        this._sendMessage("NICK", [this.name]); // Nick message
         // XXX inform user?
         break;
       case "437": // ERR_UNAVAILRESOURCE
@@ -857,8 +872,18 @@ Account.prototype = {
     return this._conversations[aNormalizedConversationName];
   },
   
-  _sendMessage: function(aMessage) {
+  _sendMessage: function(aCommand, aParams, aTarget) {
+    aMessage = aCommand;
+    if (aTarget)
+      aMessage += " " + aTarget;
+    if (aParams && aParams.length)
+      if (aParams.length > 1)
+        aMessage += " "  + aParams.slice(0,-1).join(" ") + " :" + aParams.slice(-1);
+      else
+        aMessage += " :" + aParams[0];
+    // XXX should check length of aMessage?
     aMessage += "\r\n";
+    //aMessage = aCommand + " " + aTarget + " :" + aParams.join(" ") + "\r\n";
     dump("Sending... " + aMessage);
     this._outputStream.write(aMessage, aMessage.length);
   },
@@ -866,10 +891,9 @@ Account.prototype = {
   // Implement section 3.1 of RFC 2812
   _connnectionRegistration: function() {
     if (this.password) // Password message, if provided
-      this._sendMessage("PASS " + this.password);
-    this._sendMessage("NICK " + this.name); // Nick message
-    this._sendMessage("USER " + this.name + " " + this._mode
-                      + " * :" + this._realname); // User message
+      this._sendMessage("PASS", [], this.password);
+    this._sendMessage("NICK", [], this.name); // Nick message
+    this._sendMessage("USER", [this.name, this._mode, "*", this._realname]); // User message
   }
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
