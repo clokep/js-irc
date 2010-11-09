@@ -337,7 +337,6 @@ const GenericChatConversationPrototype = {
     obs.notifyObservers(this, "new-conversation", null);
   },
   _participants: [],
-  _name: "Chat Conversation",
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
@@ -399,7 +398,7 @@ const GenericChatConversationPrototype = {
   get normalizedName() this.name.toLowerCase(),
   get title() this.name,
   get isChat() true,
-  get topic() this._topic,
+  get topic() "Topic",
   get topicSetter() "Topic Setter",
   get left() false,
   // XXX (other purpleIConvChat stuff)

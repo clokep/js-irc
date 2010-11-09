@@ -70,16 +70,38 @@ function dump(str) {
 function Chat(aAccount, aName) {
   this._init(aAccount);
   this._name = aName;
+  this._participants = [new ConvChatBuddy(aName)]; // XXX Ensure nsEnumerator is not null
 }
 Chat.prototype = {
+  _name: "Chat Conversation",
+  _topic: null,
+  _topicSetter: null,
+
   sendMsg: function(aMessage) {
     this.account._sendMessage("PRIVMSG", this.name, [aMessage]);
     this.writeMessage(this.account.name,
                       aMessage,
                       {outgoing: true});
+  },
+  
+  get name() this._name,
+  get topic() this._topic,
+  get topicSetter() this._topicSetter,
+  setTopic: function(aTopic, aTopicSetter) {
+    this._topic = aTopic;
+    this._topicSetter = aTopicSetter;
+    // XXX Notify observers
   }
 }
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
+
+function ConvChatBuddy(aName) {
+  this._name = aName;
+}
+ConvChatBuddy.prototype = {
+  get name() this._name
+}
+ConvChatBuddy.prototype.__proto__ = GenericConvChatBuddyPrototype;
 
 function Conversation(aAccount, aName) {
   this._init(aAccount);
@@ -124,20 +146,7 @@ Account.prototype = {
         this._handleMessage(data[i]);
   },
   
-  connect: function() {/*
-    var self = this;
-    setTimeout(function() {
-      self._conv = new Chat(self, "Test!");
-      //this._conv.sendMsg("Testing");
-      self._conv.writeMessage("Yo",
-                              "Some message",
-                              {outgoing: true});
-      dump("Done");
-    }, 100);
-    
-    return; // DEBUG
-  */
-    
+  connect: function() {    
     this.base.connecting();
     let self = this;
     this._conv = new Conversation(self, this._server); // XXX Remove me eventually
@@ -294,9 +303,7 @@ Account.prototype = {
       case "PING":
         // PING <server1 [ <server2> ]
         // Keep the connection alive
-        dump("PONG?");
         this._sendMessage("PONG", [aMessage.params[0]]);
-        dump("PONG!");
         break;
       case "PRIVMSG":
         // PRIVMSG <msgtarget> <text to be sent>
@@ -588,7 +595,7 @@ Account.prototype = {
         var aConversation = this._getConversation(aMessage.params[2]);
         aMessage.params[3].split(" ").forEach(function(aNickname) {
           aConversation._participants.push(new ConvChatBuddy(aNickname));
-          if (!this_buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
+          if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
             this._buddies[aNickname] = {}; // XXX new Buddy()?
         });
         break;
@@ -873,7 +880,7 @@ Account.prototype = {
   },
   
   _sendMessage: function(aCommand, aParams, aTarget) {
-    aMessage = aCommand;
+    let aMessage = aCommand;
     if (aTarget)
       aMessage += " " + aTarget;
     if (aParams && aParams.length)
