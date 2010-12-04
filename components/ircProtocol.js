@@ -19,8 +19,6 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *   Parser based on code from ChatZilla (JSIRC Library)
- *     New Dimensions Consulting, Inc & Robert Ginda <rginda@ndcico.com> 1999
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -96,6 +94,8 @@ Chat.prototype = {
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
 
 function ConvChatBuddy(aName) {
+  if ("@%+".indexOf(aName[0]) != -1) // XXX need to handle user level
+    aName = aName.slice(1);
   this._name = aName;
 }
 ConvChatBuddy.prototype = {
@@ -593,11 +593,14 @@ Account.prototype = {
         // ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
         // XXX Keep if this is secret (@), private (*) or public (=)
         var aConversation = this._getConversation(aMessage.params[2]);
-        aMessage.params[3].split(" ").forEach(function(aNickname) {
+        aMessage.params[3].trim().split(" ").forEach(function(aNickname) {
           aConversation._participants.push(new ConvChatBuddy(aNickname));
-          if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
-            this._buddies[aNickname] = {}; // XXX new Buddy()?
+          //if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
+          //  this._buddies[aNickname] = {}; // XXX new Buddy()?
         }, this);
+        aConversation.notifyObservers("chat-buddy-add",
+                                      aConversation.getParticipants(),
+                                      null);
         break;
       case "361": // RPL_KILLDONE
       case "362": // RPL_CLOSING
