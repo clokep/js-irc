@@ -536,14 +536,14 @@ const GenericChatConversationPrototype = {
   get topicSetter() "Topic Setter",
   get left() false,
   // XXX (other purpleIConvChat stuff)
-  // Needs this.buddies[name]
+  buddies: [], // Needs this.buddies[name]
   account: null,
   getParticipants: function() {
     // write some generic magic here that gives the result based on a JS object
     // or array you put in the object, _participants for example :)
     for (let participant in this._participants)
       this._participants[participant].prototype.__proto__ = GenericConvChatBuddyPrototype;
-    return nsSimpleEnumerator(this._participants);
+    return new nsSimpleEnumerator(this._participants);
   },
 };
 //GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
