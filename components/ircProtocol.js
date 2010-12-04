@@ -598,8 +598,10 @@ Account.prototype = {
           //if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
           //  this._buddies[aNickname] = {}; // XXX new Buddy()?
         }, this);
-        aConversation.notifyObservers("chat-buddy-add",
-                                      aConversation.getParticipants(),
+        
+        // Notify of only the ADDED participants
+        aConversation.notifyObservers(aConversation.getParticipants(),
+                                      "chat-buddy-add",
                                       null);
         break;
       case "361": // RPL_KILLDONE
