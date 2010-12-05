@@ -68,7 +68,7 @@ function dump(str) {
 function Chat(aAccount, aName) {
   this._init(aAccount);
   this._name = aName;
-  this._participants = [new ConvChatBuddy(aName)]; // XXX Ensure nsEnumerator is not null
+  this._participants = []; // XXX Ensure nsEnumerator is not null
 }
 Chat.prototype = {
   _name: "Chat Conversation",
@@ -76,7 +76,7 @@ Chat.prototype = {
   _topicSetter: null,
 
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG", this.name, [aMessage]);
+    this.account._sendMessage("PRIVMSG", [aMessage], this.name);
     this.writeMessage(this.account.name,
                       aMessage,
                       {outgoing: true});
@@ -94,8 +94,20 @@ Chat.prototype = {
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
 
 function ConvChatBuddy(aName) {
-  if ("@%+".indexOf(aName[0]) != -1) // XXX need to handle user level
+  if ("@%+".indexOf(aName[0]) != -1) { // Handle user levels
+    switch (aName[0]) {
+      case "@":
+        this.op = true;
+        break;
+      case "%":
+        this.halfOp = true;
+        break;
+      case "+":
+        this.voiced = true;
+        break;
+    }
     aName = aName.slice(1);
+  }
   this._name = aName;
 }
 ConvChatBuddy.prototype = {
@@ -601,8 +613,7 @@ Account.prototype = {
         
         // Notify of only the ADDED participants
         aConversation.notifyObservers(aConversation.getParticipants(),
-                                      "chat-buddy-add",
-                                      null);
+                                      "chat-buddy-add");
         break;
       case "361": // RPL_KILLDONE
       case "362": // RPL_CLOSING
