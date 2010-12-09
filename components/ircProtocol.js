@@ -99,7 +99,8 @@ Chat.prototype = {
   setTopic: function(aTopic, aTopicSetter) {
     this._topic = aTopic;
     this._topicSetter = aTopicSetter;
-    // XXX Notify observers
+
+    this.notifyObservers(null,"chat-update-topic");
   },
   
   _getParticipant: function(aNick) {
@@ -312,7 +313,7 @@ Account.prototype = {
         // XXX look over this
         var usersNames = params[1].split(",");
         for (var aChannelName in aMessage.params[0].split(",")) {
-          var aConversation = this._getConversation(aChannelName);
+          let aConversation = this._getConversation(aChannelName);
           for (var aUsername in usersNames)
             aConversation.writeMessage(aMessage.source,
                                        aMessage.params[2] || (aUsername + " has been kicked."),
@@ -359,10 +360,11 @@ Account.prototype = {
         break;
       case "PRIVMSG":
         // PRIVMSG <msgtarget> <text to be sent>
-        var aConversation = this._getConversation(aMessage.params[0]);
-        aConversation.writeMessage(aMessage.nickname || aMessage.source,
-                                   aMessage.params[1],
-                                   {incoming: true});
+        this._getConversation(aMessage.params[0]).writeMessage(
+          aMessage.nickname || aMessage.source,
+          aMessage.params[1],
+          {incoming: true}
+        );
         break;
       case "QUIT":
         // QUIT [ < Quit Message> ]
@@ -373,7 +375,9 @@ Account.prototype = {
         break;
       case "TOPIC":
         // TOPIC <channel> [ <topic> ]
-        // XXX update UI with topic
+        // XXX Update UI with topic
+        // When do we receive this?
+        //this._getConversation(aMessage.params[0]).setTopic(aMessage.params[1]);
         break;
       case "001": // RPL_WELCOME
         // Welcome to the Internet Relay Network <nick>!<user>@<host>
@@ -608,8 +612,11 @@ Account.prototype = {
         break;
       case "332": // RPL_TOPIC
         // <channel> :topic
+        // Update the topic UI
         var aConversation = this._getConversation(aMessage.params[1]);
-        aConversation.setTopic(aMessage.params[2]); // XXX Not settable right now
+        aConversation.setTopic(aMessage.params[2]);
+        var topicMessage = "The topic for " + aConversation.name + " is : " + aMessage.params[2];
+        aConversation.writeMessage(null,topicMessage,{system: true});
         break;
       // case "333": // XXX nonstandard
       case "341": // RPL_INVITING
