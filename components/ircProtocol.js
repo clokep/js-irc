@@ -78,6 +78,8 @@ function normalize(aStr, removeStatus) {
 function Chat(aAccount, aName) {
   this._init(aAccount);
   this._name = aName;
+  
+  this.notifyObservers(null, "update-conv-title");
 }
 Chat.prototype = {
   _name: "Chat Conversation",
@@ -343,8 +345,8 @@ Account.prototype = {
           aConversation.writeMessage(aMessage.source,
                                      partMessage,
                                      {system: true});
-          aConversation.QueryInterface(Ci.nsIObserverService).notifyObservers(
-            new nsSimpleEnumerator([aConversation._getParticipant(aNickname)]),
+          aConversation.notifyObservers(
+            new nsSimpleEnumerator([aNickname]),
             "chat-buddy-remove"
           );
           delete aConversation._getParticipant(aNickname);
