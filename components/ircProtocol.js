@@ -65,10 +65,19 @@ function dump(str) {
     .logStringMessage(str);
 }
 
+// Handle Scandanavian lower case
+// Optionally remove status indicators
+function normalize(aStr, removeStatus) {
+  let aNormalizeStr = aStr.toLowerCase().replace('[','{').replace(']','}')
+                          .replace('\\','|').replace('~','^');
+  if (removeStatus)
+    aNormalizeStr = aNormalizeStr.replace(/^[@%\+]/,"");
+  return aNormalizeStr;
+}
+
 function Chat(aAccount, aName) {
   this._init(aAccount);
   this._name = aName;
-  this._participants = []; // XXX Ensure nsEnumerator is not null
 }
 Chat.prototype = {
   _name: "Chat Conversation",
@@ -89,6 +98,12 @@ Chat.prototype = {
     this._topic = aTopic;
     this._topicSetter = aTopicSetter;
     // XXX Notify observers
+  },
+  
+  _getParticipant: function(aNick) {
+    if (!this._participants[normalize(aNick, true)])
+      this._participants[aNick] = new ConvChatBuddy(aNick);
+    return this._participants[aNick];
   }
 }
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
@@ -201,7 +216,9 @@ Account.prototype = {
     
     this._outputStream.close();
     this._inputStream.close();
-    this.socketTransport.close(Components.results.NS_OK);
+    this._socketTransport.close(Components.results.NS_OK);
+    
+    this.base.disconnected();
   },
   
   /*
@@ -276,12 +293,21 @@ Account.prototype = {
         break;
       case "JOIN":
         // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
-        if (aMessage.nickname == this.name) // Successfully joined a room
-          this._getConversation(aMessage.params[0]); // Open the conversation
-        // XXX display join messages from users
+        for each (let aChannelName in aMessage.params[0].split(",")) {
+          let aConversation = this._getConversation(aChannelName);
+          if (aMessage.nickname != this.name) {
+            // Only do something if you didn't join
+            let joinMessage = aMessage.nickname + " [<i>" + aMessage.source +
+                                "</i>] entered the room.";
+            aConversation.writeMessage(aMessage.nickname,
+                                       joinMessage,
+                                       {system: true});
+          }
+        }
         break;
       case "KICK":
         // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
+        // XXX look over this
         var usersNames = params[1].split(",");
         for (var aChannelName in aMessage.params[0].split(",")) {
           var aConversation = this._getConversation(aChannelName);
@@ -304,12 +330,24 @@ Account.prototype = {
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
-        // XXX display part messages from users
-        for (var aChannelName in aMessage.params[0].split(",")) {
-          var aConversation = this._getConversation(aChannelName);
+        // XXX does this work?
+        // XXX should we customize this to "You have parted."?
+        let aNickname = aMessage.nickname;
+        for each (let aChannelName in aMessage.params[0].split(",")) {
+          let aConversation = this._getConversation(aChannelName);
+          let partMessage = aMessage.nickname + " has left the room: (Part";
+          // If a part message was included, show it
+          if (aMessage.params.length == 2)
+            partMessage += ": " + aMessage.params[1];
+          partMessage += ").";
           aConversation.writeMessage(aMessage.source,
-                                     aMessage.params[1] || "has parted.",
+                                     partMessage,
                                      {system: true});
+          aConversation.QueryInterface(Ci.nsIObserverService).notifyObservers(
+            new nsSimpleEnumerator([aConversation._getParticipant(aNickname)]),
+            "chat-buddy-remove"
+          );
+          delete aConversation._getParticipant(aNickname);
         }
         break;
       case "PING":
@@ -606,7 +644,7 @@ Account.prototype = {
         // XXX Keep if this is secret (@), private (*) or public (=)
         var aConversation = this._getConversation(aMessage.params[2]);
         aMessage.params[3].trim().split(" ").forEach(function(aNickname) {
-          aConversation._participants.push(new ConvChatBuddy(aNickname));
+          aConversation._getParticipant(aNickname);
           //if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
           //  this._buddies[aNickname] = {}; // XXX new Buddy()?
         }, this);
@@ -881,12 +919,7 @@ Account.prototype = {
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
-    // XXX Move this to a function
-    let aNormalizedConversationName = aConversationName.toLowerCase()
-                                                       .replace('[','{')
-                                                       .replace(']','}')
-                                                       .replace('\\','|')
-                                                       .replace('~','^');
+    let aNormalizedConversationName = normalize(aConversationName)
     if (!this._conversations[aNormalizedConversationName])
       if ("&#+!".indexOf(aNormalizedConversationName.charAt(0)) != -1)
         this._conversations[aNormalizedConversationName] = new Chat(this, aConversationName);

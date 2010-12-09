@@ -542,7 +542,7 @@ const GenericChatConversationPrototype = {
     // or array you put in the object, _participants for example :)
     let participants = new Array();
     for each (let participant in this._participants)
-      participants.push(participant.QueryInterface(Ci.purpleIConvChatBuddy));
+      participants.push(participant);
     return new nsSimpleEnumerator(participants);
   },
 }
