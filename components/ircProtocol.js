@@ -333,7 +333,6 @@ Account.prototype = {
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
-        // XXX does this work?
         // XXX should we customize this to "You have parted."?
         let aNickname = aMessage.nickname;
         for each (let aChannelName in aMessage.params[0].split(",")) {
@@ -346,8 +345,11 @@ Account.prototype = {
           aConversation.writeMessage(aMessage.source,
                                      partMessage,
                                      {system: true});
+          let aStringNickname = Cc["@mozilla.org/supports-string;1"]
+                                  .createInstance(Ci.nsISupportsString);
+          aStringNickname.data = aNickname;
           aConversation.notifyObservers(
-            new nsSimpleEnumerator([aNickname]),
+            new nsSimpleEnumerator([aStringNickname]),
             "chat-buddy-remove"
           );
           delete aConversation._getParticipant(aNickname);
@@ -375,9 +377,12 @@ Account.prototype = {
         break;
       case "TOPIC":
         // TOPIC <channel> [ <topic> ]
-        // XXX Update UI with topic
-        // When do we receive this?
-        //this._getConversation(aMessage.params[0]).setTopic(aMessage.params[1]);
+        // Show topic as a message
+        this._getConversation(aMessage.params[0]).writeMessage(
+          null,
+          aMessage.nickname + " has changed the topic to: " + aMessage.params[1],
+          {system: true}
+        );
         break;
       case "001": // RPL_WELCOME
         // Welcome to the Internet Relay Network <nick>!<user>@<host>
@@ -615,6 +620,7 @@ Account.prototype = {
         // Update the topic UI
         var aConversation = this._getConversation(aMessage.params[1]);
         aConversation.setTopic(aMessage.params[2]);
+        // Send the message
         var topicMessage = "The topic for " + aConversation.name + " is : " + aMessage.params[2];
         aConversation.writeMessage(null,topicMessage,{system: true});
         break;
