@@ -333,7 +333,7 @@ Account.prototype = {
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
-        // XXX should we customize this to "You have parted."?
+        // Display the message and remove them from the room
         for each (let aChannelName in aMessage.params[0].split(",")) {
           let aConversation = this._getConversation(aChannelName);
           let partMessage;
