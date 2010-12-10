@@ -432,12 +432,6 @@ const GenericConversationPrototype = {
   close: function() { },
   sendTyping: function(aLength) { },
 
-  setBaseURI: function(aDocument, aURI) {
-    Components.classes["@instantbird.org/purple/convim;1"]
-              .createInstance(Ci.purpleIConvIM)
-              .setBaseURI(aDocument, aURI);
-  },
-
   updateTyping: function(aState) {
     if (aState == this.typingState)
       return;
@@ -462,15 +456,14 @@ const GenericConversationPrototype = {
   getParticipants: function() null
 };
 const GenericChatConversationPrototype = {
-  _lastId: 0,
   _init: function(aAccount) {
     this.account = aAccount;
     this.id = ++GenericConversationPrototype._lastId;
 
     this._observers = [];
+    this._participants = {};
     obs.notifyObservers(this, "new-conversation", null);
   },
-  _participants: [],
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
@@ -506,24 +499,7 @@ const GenericChatConversationPrototype = {
     throw Cr.NS_ERROR_NOT_IMPLEMENTED;
   },
   close: function() { },
-  sendTyping: function(aLength) { },
 
-  setBaseURI: function(aDocument, aURI) {
-    Components.classes["@instantbird.org/purple/convim;1"]
-              .createInstance(Ci.purpleIConvIM)
-              .setBaseURI(aDocument, aURI);
-  },
-
-  updateTyping: function(aState) {
-    if (aState == this.typingState)
-      return;
-
-    if (aState == Ci.purpleIConvIM.NOT_TYPING)
-      delete this.typingState;
-    else
-      this.typingState = aState;
-    this.notifyObservers(null, "update-typing", null);
-  },
   writeMessage: function(aWho, aText, aProperties) {
     (new Message(aWho, aText, aProperties)).conversation = this;
   },
@@ -535,31 +511,38 @@ const GenericChatConversationPrototype = {
   get topic() "Topic",
   get topicSetter() "Topic Setter",
   get left() false,
-  // XXX (other purpleIConvChat stuff)
+
   account: null,
   getParticipants: function() {
     // write some generic magic here that gives the result based on a JS object
     // or array you put in the object, _participants for example :)
-    let participants = new Array();
+    /*let participants = new Array();
     for each (let participant in this._participants)
       participants.push(participant);
-    return new nsSimpleEnumerator(participants);
-  },
-}
+    return new nsSimpleEnumerator(participants);*/
+    return new nsSimpleEnumerator(
+      Object.keys(this._participants)
+            .map(function(key) { return this._participants[key]; },this)
+    );
+  }
+};
 //GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
 
 const GenericConvChatBuddyPrototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
-  getIterfaces: function (countRef) {
-    var interfaces = [
-      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConvChatBuddy
-    ];
+  get classDescription() "ConvChatBuddy object",
+  get contractID() "@instantbird.org/purple/" + this.normalizedName + ";1",
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConvChatBuddy];
     countRef.value = interfaces.length;
     return interfaces;
   },
+  getHelperForLanguage: function(language) null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
 
   name: "ConvChatBuddy",
-  alias: "Alias",
+  alias: "",
 
   get noFlags() !(this.voiced || this.halfOp || this.op ||
                   this.founder || this.typing),
@@ -568,7 +551,7 @@ const GenericConvChatBuddyPrototype = {
   op: false,
   founder: false,
   typing: false
-}
+};
 
 // the name getter needs to be implemented
 const GenericProtocolPrototype = {
