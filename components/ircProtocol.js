@@ -334,10 +334,13 @@ Account.prototype = {
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
         // XXX should we customize this to "You have parted."?
-        let aNickname = aMessage.nickname;
         for each (let aChannelName in aMessage.params[0].split(",")) {
           let aConversation = this._getConversation(aChannelName);
-          let partMessage = aMessage.nickname + " has left the room: (Part";
+          let partMessage;
+          if (aMessage.nickname == this.name)
+            partMessage = "You have left the room: (Part";
+          else
+            partMessage = aMessage.nickname + " has left the room: (Part";
           // If a part message was included, show it
           if (aMessage.params.length == 2)
             partMessage += ": " + aMessage.params[1];
@@ -347,12 +350,12 @@ Account.prototype = {
                                      {system: true});
           let aStringNickname = Cc["@mozilla.org/supports-string;1"]
                                   .createInstance(Ci.nsISupportsString);
-          aStringNickname.data = aNickname;
+          aStringNickname.data = aMessage.nickname;
           aConversation.notifyObservers(
             new nsSimpleEnumerator([aStringNickname]),
             "chat-buddy-remove"
           );
-          delete aConversation._getParticipant(aNickname);
+          delete aConversation._getParticipant(aMessage.nickname);
         }
         break;
       case "PING":
