@@ -102,8 +102,16 @@ Chat.prototype = {
   },
   _removeParticipant: function(aNick) {
     let aNormalizedNick = normalize(aNick, true);
-    if (!this._participants.hasOwnProperty(aNormalizedNick))
+    if (!this._participants.hasOwnProperty(aNormalizedNick)) {
+      let stringNickname = Cc["@mozilla.org/supports-string;1"]
+                              .createInstance(Ci.nsISupportsString);
+      stringNickname.data = aNick;
+      this.notifyObservers(
+        new nsSimpleEnumerator([stringNickname]),
+        "chat-buddy-remove"
+      );
       delete this._participants[aNormalizedNick];
+    }
   }
 };
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
@@ -300,6 +308,10 @@ Account.prototype = {
         // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
         for each (let aChannelName in aMessage.params[0].split(",")) {
           let aConversation = this._getConversation(aChannelName);
+          /*aConversation.notifyObservers(
+            new nsSimpleEnumerator([aConversation._getParticipant(aMessage.nickname)]),
+            "chat-buddy-add"
+          );*/
           if (aMessage.nickname != this.name) {
             // Only do something if you didn't join
             let joinMessage = aMessage.nickname + " [<i>" + aMessage.source +
@@ -314,12 +326,18 @@ Account.prototype = {
         // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
         // XXX look over this
         var usersNames = params[1].split(",");
-        for (var aChannelName in aMessage.params[0].split(",")) {
+        for (let aChannelName in aMessage.params[0].split(",")) {
           let aConversation = this._getConversation(aChannelName);
-          for (var aUsername in usersNames)
-            aConversation.writeMessage(aMessage.source,
-                                       aMessage.params[2] || (aUsername + " has been kicked."),
+          for (let aUsername in usersNames) {
+            let kickMessage = aUsername + " has been kicked";
+            if (aMessage.params.length == 3)
+              kickMessage += " [<i>" + aMessage.params[2] + "</i>]";
+            kickMessage += ".";
+            aConversation.writeMessage(aMessage.nickname,
+                                       kickMessage,
                                        {system: true});
+            aConversation._removeParticipant(aMessage.nickname);
+          }
         }
         break;
       case "MODE":
@@ -351,13 +369,6 @@ Account.prototype = {
           aConversation.writeMessage(aMessage.source,
                                      partMessage,
                                      {system: true});
-          let aStringNickname = Cc["@mozilla.org/supports-string;1"]
-                                  .createInstance(Ci.nsISupportsString);
-          aStringNickname.data = aMessage.nickname;
-          aConversation.notifyObservers(
-            new nsSimpleEnumerator([aStringNickname]),
-            "chat-buddy-remove"
-          );
           aConversation._removeParticipant(aMessage.nickname);
         }
         break;
