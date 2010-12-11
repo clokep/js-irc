@@ -94,15 +94,22 @@ Chat.prototype = {
     this.notifyObservers(null, "chat-update-topic");
   },
 
-  _getParticipant: function(aNick) {
+  _getParticipant: function(aNick, aNotifyObservers) {
     let aNormalizedNick = normalize(aNick, true);
     if (!this._participants.hasOwnProperty(aNormalizedNick))
       this._participants[aNormalizedNick] = new ConvChatBuddy(aNick);
+
+    if (aNotifyObservers) {
+      this.notifyObservers(
+        new nsSimpleEnumerator([this._participants[aNormalizedNick]]),
+        "chat-buddy-add"
+      );
+    }
     return this._participants[aNormalizedNick];
   },
   _removeParticipant: function(aNick) {
     let aNormalizedNick = normalize(aNick, true);
-    if (!this._participants.hasOwnProperty(aNormalizedNick)) {
+    if (this._participants.hasOwnProperty(aNormalizedNick)) {
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
       stringNickname.data = aNick;
@@ -211,17 +218,10 @@ Account.prototype = {
     this._connectionRegistration();
   },
 
+  // When the user clicks "Disconnect" in account manager
   disconnect: function() {
     this.base.disconnecting(this._base.NO_ERROR,"Sending the QUIT message");
     this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
-
-    // XXX Should we wait for confirmation or a certain amount of time, then
-    // force QUIT and close the sockets
-    this._outputStream.close();
-    this._inputStream.close();
-    this._socketTransport.close(Components.results.NS_OK);
-
-    this.base.disconnected();
   },
 
   /*
@@ -251,8 +251,7 @@ Account.prototype = {
    */
   // See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
   _parseMessage: function(aData) {
-    var aMessage = {};
-    aMessage.rawMessage = aData;
+    let message = {"rawMessage": aData};
     let temp;
 
     // Splits the raw string into four parts (the second is required)
@@ -262,22 +261,22 @@ Account.prototype = {
     //   [:last paramter]
     if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
       // Assume message is from the server if not specified
-      aMessage.source = temp[1] || this._server;
-      aMessage.command = temp[2];
+      message.source = temp[1] || this._server;
+      message.command = temp[2];
       // Space separated parameters
-      aMessage.params = temp[3] ? temp[3].trim().split(/ +/) : [];
+      message.params = temp[3] ? temp[3].trim().split(/ +/) : [];
       if (temp[4]) // Last parameter can contain spaces
-        aMessage.params.push(temp[4]);
+        message.params.push(temp[4]);
 
       // The source string can be split into multiple parts as:
       //   :(server|nickname[[!user]@host]
-      if ((temp = aMessage.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
-        aMessage.nickname = temp[1];
-        aMessage.user = temp[2] || null; // Optional
-        aMessage.host = temp[3] || null; // Optional
+      if ((temp = message.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
+        message.nickname = temp[1];
+        message.user = temp[2] || null; // Optional
+        message.host = temp[3] || null; // Optional
       }
     }
-    return aMessage;
+    return message;
   },
 
   /*
@@ -285,19 +284,20 @@ Account.prototype = {
    */
   // Remove aConversation blah blah
   _handleMessage: function(aRawMessage) {
-    var aMessage = this._parseMessage(aRawMessage);
-    dump(JSON.stringify(aMessage));
-    if (!aMessage.source) // No real message
+    var message = this._parseMessage(aRawMessage);
+    dump(JSON.stringify(message));
+    if (!message.source) // No real message
       return;
 
     // Handle command responses
-    switch (aMessage.command.toUpperCase()) {
+    switch (message.command.toUpperCase()) {
       case "ERROR":
         // ERROR <error message>
         // Report the error
-        // XXX Disconnect here?
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.rawMessage,
+        this._disconnect();
+        // XXX write to each conversation?
+        this._conv.writeMessage(message.source,
+                                message.rawMessage,
                                 {system: true, error: true});
         break;
       case "INVITE":
@@ -306,19 +306,17 @@ Account.prototype = {
         break;
       case "JOIN":
         // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
-        for each (let aChannelName in aMessage.params[0].split(",")) {
-          let aConversation = this._getConversation(aChannelName);
-          /*aConversation.notifyObservers(
-            new nsSimpleEnumerator([aConversation._getParticipant(aMessage.nickname)]),
-            "chat-buddy-add"
-          );*/
-          if (aMessage.nickname != this.name) {
-            // Only do something if you didn't join
-            let joinMessage = aMessage.nickname + " [<i>" + aMessage.source +
+        // Add the buddy to each channel
+        for each (let channelName in message.params[0].split(",")) {
+          let conversation = this._getConversation(channelName);
+          if (message.nickname != this.name) {
+            // Don't do anything if you join, RPL_NAMES takes care of that case
+            conversation._getParticipant(message.nickname, true);
+            let joinMessage = message.nickname + " [<i>" + message.source +
                                 "</i>] entered the room.";
-            aConversation.writeMessage(aMessage.nickname,
-                                       joinMessage,
-                                       {system: true});
+            conversation.writeMessage(message.nickname,
+                                      joinMessage,
+                                      {system: true});
           }
         }
         break;
@@ -326,17 +324,17 @@ Account.prototype = {
         // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
         // XXX look over this
         var usersNames = params[1].split(",");
-        for (let aChannelName in aMessage.params[0].split(",")) {
-          let aConversation = this._getConversation(aChannelName);
-          for (let aUsername in usersNames) {
-            let kickMessage = aUsername + " has been kicked";
+        for (let channelName in message.params[0].split(",")) {
+          let conversation = this._getConversation(channelName);
+          for (let username in usersNames) {
+            let kickMessage = username + " has been kicked";
             if (aMessage.params.length == 3)
-              kickMessage += " [<i>" + aMessage.params[2] + "</i>]";
+              kickMessage += " [<i>" + message.params[2] + "</i>]";
             kickMessage += ".";
-            aConversation.writeMessage(aMessage.nickname,
-                                       kickMessage,
-                                       {system: true});
-            aConversation._removeParticipant(aMessage.nickname);
+            conversation.writeMessage(message.nickname,
+                                      kickMessage,
+                                      {system: true});
+            conversation._removeParticipant(username);
           }
         }
         break;
@@ -346,42 +344,43 @@ Account.prototype = {
         break;
       case "NOTICE":
         // NOTICE <msgtarget> <text>
-        this._getConversation(aMessage.params[0]).writeMessage(
-          aMessage.nickname || aMessage.source,
-          aMessage.params[1],
+        //this._getConversation(message.params[0]).writeMessage(
+        this._getConversation(message.source).writeMessage(
+          message.nickname || message.source,
+          message.params[1],
           {incoming: true}
         );
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
         // Display the message and remove them from the room
-        for each (let aChannelName in aMessage.params[0].split(",")) {
-          let aConversation = this._getConversation(aChannelName);
+        for each (let channelName in message.params[0].split(",")) {
+          let conversation = this._getConversation(channelName);
           let partMessage;
-          if (aMessage.nickname == this.name)
+          if (message.nickname == this.name) // XXX remove all buddies?
             partMessage = "You have left the room: (Part";
           else
-            partMessage = aMessage.nickname + " has left the room: (Part";
+            partMessage = message.nickname + " has left the room: (Part";
           // If a part message was included, show it
-          if (aMessage.params.length == 2)
-            partMessage += ": " + aMessage.params[1];
+          if (message.params.length == 2)
+            partMessage += ": " + message.params[1];
           partMessage += ").";
-          aConversation.writeMessage(aMessage.source,
-                                     partMessage,
-                                     {system: true});
-          aConversation._removeParticipant(aMessage.nickname);
+          conversation.writeMessage(message.source,
+                                    partMessage,
+                                    {system: true});
+          conversation._removeParticipant(message.nickname);
         }
         break;
       case "PING":
         // PING <server1 [ <server2> ]
         // Keep the connection alive
-        this._sendMessage("PONG", [aMessage.params[0]]);
+        this._sendMessage("PONG", [message.params[0]]);
         break;
       case "PRIVMSG":
         // PRIVMSG <msgtarget> <text to be sent>
-        this._getConversation(aMessage.params[0]).writeMessage(
-          aMessage.nickname || aMessage.source,
-          aMessage.params[1],
+        this._getConversation(message.params[0]).writeMessage(
+          message.nickname || message.source,
+          message.params[1],
           {incoming: true}
         );
         break;
@@ -395,9 +394,9 @@ Account.prototype = {
       case "TOPIC":
         // TOPIC <channel> [ <topic> ]
         // Show topic as a message
-        this._getConversation(aMessage.params[0]).writeMessage(
-          null,
-          aMessage.nickname + " has changed the topic to: " + aMessage.params[1],
+        this._getConversation(message.params[0]).writeMessage(
+          message.nickname || message.source,
+          message.nickname + " has changed the topic to: " + message.params[1],
           {system: true}
         );
         break;
@@ -417,8 +416,8 @@ Account.prototype = {
         // Try server <server name>, port <port number>
         // XXX irc.mozilla.org seems to respond with a list of available
         //     commands and limits the server supports
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params.slice(1).join(" "),
+        this._conv.writeMessage(message.source,
+                                message.params.slice(1).join(" "),
                                 {system: true});
         break;
       case "200": // RPL_TRACELINK
@@ -536,8 +535,8 @@ Account.prototype = {
       case "259": // RPL_ADMINEMAIL
         // :<admin info>
         // XXX parse this for a contact email
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params.slice(1).join(" "), // skip nickname
+        this._conv.writeMessage(message.source,
+                                message.params.slice(1).join(" "), // skip nickname
                                 {system: true});
         break;
       case "261": // RPL_TRACELOG
@@ -554,17 +553,17 @@ Account.prototype = {
         // :Current Local Users: <integer>  Max: <integer>
       case "266": // XXX nonstandard
         // :Current Global Users: <integer>  Max: <integer>
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params[1], // skip nickname
+        this._conv.writeMessage(message.source,
+                                message.params[1], // skip nickname
                                 {system: true});
       case "300": // RPL_NONE
         // Non-generic
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
-        var aConversation = this._getConversation(aMessage.params[0]);
-        aConversation.writeMessage(aMessage.params[0],
-                                   aMessage.params[1],
+        var conversation = this._getConversation(message.params[0]);
+        conversation.writeMessage(message.params[0],
+                                   message.params[1],
                                    {system: true});
         // XXX set user as away on buddy list / conversation lists
         break;
@@ -635,11 +634,12 @@ Account.prototype = {
       case "332": // RPL_TOPIC
         // <channel> :topic
         // Update the topic UI
-        var aConversation = this._getConversation(aMessage.params[1]);
-        aConversation.setTopic(aMessage.params[2]);
+        var conversation = this._getConversation(message.params[1]);
+        conversation.setTopic(message.params[2]);
         // Send the message
-        var topicMessage = "The topic for " + aConversation.name + " is : " + aMessage.params[2];
-        aConversation.writeMessage(null,topicMessage,{system: true});
+        var topicMessage = "The topic for " + conversation.name + " is : " +
+                             message.params[2];
+        conversation.writeMessage(null, topicMessage, {system: true});
         break;
       // case "333": // XXX nonstandard
       case "341": // RPL_INVITING
@@ -674,16 +674,16 @@ Account.prototype = {
       case "353": // RPL_NAMREPLY
         // ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
         // XXX Keep if this is secret (@), private (*) or public (=)
-        var aConversation = this._getConversation(aMessage.params[2]);
-        aMessage.params[3].trim().split(" ").forEach(function(aNickname) {
-          aConversation._getParticipant(aNickname);
-          //if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
-          //  this._buddies[aNickname] = {}; // XXX new Buddy()?
+        var conversation = this._getConversation(message.params[2]);
+        message.params[3].trim().split(" ").forEach(function(nickname) {
+          conversation._getParticipant(nickname);
+          //if (!this._buddies[nickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
+          //  this._buddies[nickname] = {}; // XXX new Buddy()?
         }, this);
 
         // Notify of only the ADDED participants
-        aConversation.notifyObservers(aConversation.getParticipants(),
-                                      "chat-buddy-add");
+        conversation.notifyObservers(conversation.getParticipants(),
+                                     "chat-buddy-add");
         break;
       case "361": // RPL_KILLDONE
       case "362": // RPL_CLOSING
@@ -713,16 +713,17 @@ Account.prototype = {
         break;
       case "371": // RPL_INFO
         // :<string>
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params[1],
+        this._conv.writeMessage(message.source,
+                                message.params[1],
                                 {system: true});
         break;
       case "372": // RPL_MOTD
         // :- <text>
-        if (aMessage.params[1].length > 2) // Ignore empty messages
-          this._conv.writeMessage(aMessage.source,
-                                  aMessage.params[1].slice(2),
+        if (message.params[1].length > 2) { // Ignore empty messages
+          this._conv.writeMessage(message.source,
+                                  message.params[1].slice(2),
                                   {incoming: true});
+        }
         break;
       case "373": // RPL_INFOSTART
         // Non-generic
@@ -732,8 +733,8 @@ Account.prototype = {
         break;
       case "375": // RPL_MOTDSTART
         // :- <server> Message of the day -
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params[1].slice(2,-2),
+        this._conv.writeMessage(message.source,
+                                message.params[1].slice(2,-2),
                                 {incoming: true});
         break;
       case "376": // RPL_ENDOFMOTD
@@ -741,15 +742,15 @@ Account.prototype = {
         break;
       case "381": // RPL_YOUREOPER
         // :You are now an IRC operator
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params[0],
+        this._conv.writeMessage(message.source,
+                                message.params[0],
                                 {system: true});
         // XXX update UI accordingly to show oper status
         break;
       case "382": // RPL_REHASHING
         // <config file> :Rehashing
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params.join(" "),
+        this._conv.writeMessage(message.source,
+                                message.params.join(" "),
                                 {system: true});
         break;
       case "383": // RPL_YOURESERVICE
@@ -843,9 +844,9 @@ Account.prototype = {
       case "436": // ERR_NICKCOLLISION
         // <nick> :Nickname collision KILL from <user>@<host>
         // Take the returned nick and increment the last character
-        this.name = aMessage.params[0].slice(0, -1) +
+        this.name = message.params[0].slice(0, -1) +
           String.fromCharCode(
-            aMessage.params[0].charCodeAt(aMessage.params[0].length - 1) + 1
+            message.params[0].charCodeAt(message.params[0].length - 1) + 1
           );
         this._sendMessage("NICK", [this.name]); // Nick message
         // XXX inform user?
@@ -881,13 +882,12 @@ Account.prototype = {
       case "465": // ERR_YOUREBANEDCREEP
         // :You are banned from this server
         // XXX Disconnect account?
-        this._conv.writeMessage(aMessage.source,
-                              aMessage.rawMessage,
-                              {error: true});
+        this._conv.writeMessage(message.source,
+                                message.rawMessage,
+                                {error: true});
         break;
       case "466": // ERR_YOUWILLBEBANNED
-        this.disconnect(); // XXX no reason to be connected if we can't do anything
-        break;
+        // XXX we should disconnect here
       case "467": // ERR_KEYSET
         // <channel> :Channel key already set
       case "471": // ERR_CHANNELISFULL
@@ -932,15 +932,15 @@ Account.prototype = {
         // XXX could this happen?
       case "502": // ERR_USERSDONTMATCH
         // :Cannot change mode for other users
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.rawMessage,
+        this._conv.writeMessage(message.source,
+                                message.rawMessage,
                                 {error: true});
         break;
       default:
         // Output it for debug
-        dump("Unhandled: " + aMessage.rawMessage);
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.rawMessage,
+        dump("Unhandled: " + message.rawMessage);
+        this._conv.writeMessage(message.source,
+                                message.rawMessage,
                                 {incoming: true});
         break; // Do nothing
     }
@@ -951,13 +951,13 @@ Account.prototype = {
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
-    let aNormalizedConversationName = normalize(aConversationName);
-    if (!this._conversations.hasOwnProperty(aNormalizedConversationName))
-      if ("&#+!".indexOf(aNormalizedConversationName.charAt(0)) != -1)
-        this._conversations[aNormalizedConversationName] = new Chat(this, aConversationName);
+    let normalizedConversationName = normalize(aConversationName);
+    if (!this._conversations.hasOwnProperty(normalizedConversationName))
+      if ("&#+!".indexOf(normalizedConversationName.charAt(0)) != -1)
+        this._conversations[normalizedConversationName] = new Chat(this, aConversationName);
       else
-        this._conversations[aNormalizedConversationName] = new Conversation(this, aConversationName);
-    return this._conversations[aNormalizedConversationName];
+        this._conversations[normalizedConversationName] = new Conversation(this, aConversationName);
+    return this._conversations[normalizedConversationName];
   },
 
   _sendMessage: function(aCommand, aParams, aTarget) {
@@ -983,6 +983,16 @@ Account.prototype = {
       this._sendMessage("PASS", [], this.password);
     this._sendMessage("NICK", [], this.name); // Nick message
     this._sendMessage("USER", [this.name, this._mode, "*", this._realname]); // User message
+  },
+
+  _disconnect: function() {
+    // force QUIT and close the sockets
+    this.base.disconnecting(this._base.NO_ERROR,"Closing sockets.");
+    this._outputStream.close();
+    this._inputStream.close();
+    this._socketTransport.close(Components.results.NS_OK);
+
+    this.base.disconnected();
   }
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
