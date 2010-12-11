@@ -68,11 +68,10 @@ function dump(str) {
 // Handle Scandanavian lower case
 // Optionally remove status indicators
 function normalize(aStr, aRemoveStatus) {
-  let aNormalizeStr = aStr.toLowerCase().replace('[','{').replace(']','}')
-                          .replace('\\','|').replace('~','^');
   if (aRemoveStatus)
-    aNormalizeStr = aNormalizeStr.replace(/^[@%\+]/,"");
-  return aNormalizeStr;
+    aStr = aStr.replace(/^[@%\+]/, "");
+  return aStr.toLowerCase().replace("[", "{").replace("]", "}")
+                           .replace("\\", "|").replace("~", "^");
 }
 
 function Chat(aAccount, aName) {
@@ -95,29 +94,28 @@ Chat.prototype = {
   },
 
   _getParticipant: function(aNick, aNotifyObservers) {
-    let aNormalizedNick = normalize(aNick, true);
-    if (!this._participants.hasOwnProperty(aNormalizedNick))
-      this._participants[aNormalizedNick] = new ConvChatBuddy(aNick);
+    let normalizedNick = normalize(aNick, true);
+    if (!this._participants.hasOwnProperty(normalizedNick)) {
+      this._participants[normalizedNick] = new ConvChatBuddy(aNick);
 
-    if (aNotifyObservers) {
-      this.notifyObservers(
-        new nsSimpleEnumerator([this._participants[aNormalizedNick]]),
-        "chat-buddy-add"
-      );
+      if (aNotifyObservers) {
+        this.notifyObservers(
+          new nsSimpleEnumerator([this._participants[aNormalizedNick]]),
+          "chat-buddy-add"
+        );
+      }
     }
-    return this._participants[aNormalizedNick];
+    return this._participants[normalizedNick];
   },
   _removeParticipant: function(aNick) {
-    let aNormalizedNick = normalize(aNick, true);
-    if (this._participants.hasOwnProperty(aNormalizedNick)) {
+    let normalizedNick = normalize(aNick, true);
+    if (!this._participants.hasOwnProperty(normalizedNick)) {
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
       stringNickname.data = aNick;
-      this.notifyObservers(
-        new nsSimpleEnumerator([stringNickname]),
-        "chat-buddy-remove"
-      );
-      delete this._participants[aNormalizedNick];
+      this.notifyObservers(new nsSimpleEnumerator([stringNickname]),
+                           "chat-buddy-remove");
+      delete this._participants[normalizedNick];
     }
   }
 };
@@ -172,12 +170,15 @@ Account.prototype = {
   onStartRequest: function(request, context) { },
   onStopRequest: function(request, context, status) { },
   onDataAvailable: function(request, context, inputStream, offset, count) {
-    let data = this._inputStreamBuffer + this._scriptableInputStream.read(count);
+    let data =
+      this._inputStreamBuffer + this._scriptableInputStream.read(count);
     data = data.split(/\r\n/);
-    for (var i = 0; i < (data.length - 1); i++)
-      this._handleMessage(data[i]);
+
     // Store the (possible) incomplete part
-    this._inputStreamBuffer = data[data.length - 1];
+    this._inputStreamBuffer = data.pop();
+
+    for each (let message in data)
+      this._handleMessage(message);
   },
 
   connect: function() {
@@ -220,7 +221,7 @@ Account.prototype = {
 
   // When the user clicks "Disconnect" in account manager
   disconnect: function() {
-    this.base.disconnecting(this._base.NO_ERROR,"Sending the QUIT message");
+    this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
     this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
   },
 
@@ -951,13 +952,13 @@ Account.prototype = {
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
-    let normalizedConversationName = normalize(aConversationName);
-    if (!this._conversations.hasOwnProperty(normalizedConversationName))
-      if ("&#+!".indexOf(normalizedConversationName.charAt(0)) != -1)
-        this._conversations[normalizedConversationName] = new Chat(this, aConversationName);
-      else
-        this._conversations[normalizedConversationName] = new Conversation(this, aConversationName);
-    return this._conversations[normalizedConversationName];
+    let normalizedName = normalize(aConversationName);
+    if (!this._conversations.hasOwnProperty(normalizedName)) {
+      let constructor = /^[&#+!]/.test(normalizedName) ? Chat : Conversation;
+      this._conversations[normalizedName] =
+        new constructor(this, aConversationName);
+    }
+    return this._conversations[normalizedName];
   },
 
   _sendMessage: function(aCommand, aParams, aTarget) {
@@ -967,8 +968,8 @@ Account.prototype = {
     if (aParams && aParams.length) {
       // Join the parameters with spaces, except the last parameter which gets
       // joined with a " :" before it (and can contain spaces)
-      let params = aParams;
-      params[params.length - 1] = ":" + params[params.length - 1];
+      let params = aParams.slice(0, -1);
+      params.push(":" + aParams.slice(-1));
       message += " " + params.join(" ");
     }
     // XXX should check length of aMessage?

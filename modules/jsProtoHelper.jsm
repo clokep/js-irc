@@ -452,8 +452,7 @@ const GenericConversationPrototype = {
   get isChat() false,
   account: null,
   buddy: null,
-  typingState: Ci.purpleIConvIM.NOT_TYPING,
-  getParticipants: function() null
+  typingState: Ci.purpleIConvIM.NOT_TYPING
 };
 const GenericChatConversationPrototype = {
   _init: function(aAccount) {
@@ -519,7 +518,7 @@ const GenericChatConversationPrototype = {
   getParticipants: function() {
     return new nsSimpleEnumerator(
       Object.keys(this._participants)
-            .map(function(key) { return this._participants[key]; },this)
+            .map(function(key) this._participants[key], this)
     );
   }
 };
