@@ -67,75 +67,61 @@ function dump(str) {
 
 // Handle Scandanavian lower case
 // Optionally remove status indicators
-function normalize(aStr, removeStatus) {
+function normalize(aStr, aRemoveStatus) {
   let aNormalizeStr = aStr.toLowerCase().replace('[','{').replace(']','}')
                           .replace('\\','|').replace('~','^');
-  if (removeStatus)
+  if (aRemoveStatus)
     aNormalizeStr = aNormalizeStr.replace(/^[@%\+]/,"");
   return aNormalizeStr;
 }
 
 function Chat(aAccount, aName) {
-  this._init(aAccount);
   this._name = aName;
-  
-  this.notifyObservers(null, "update-conv-title");
+  this._init(aAccount);
 }
 Chat.prototype = {
-  _name: "Chat Conversation",
-  _topic: null,
-  _topicSetter: null,
-
   sendMsg: function(aMessage) {
     this.account._sendMessage("PRIVMSG", [aMessage], this.name);
     this.writeMessage(this.account.name,
                       aMessage,
                       {outgoing: true});
   },
-  
-  get name() this._name,
-  get topic() this._topic,
-  get topicSetter() this._topicSetter,
+
   setTopic: function(aTopic, aTopicSetter) {
     this._topic = aTopic;
     this._topicSetter = aTopicSetter;
 
-    this.notifyObservers(null,"chat-update-topic");
+    this.notifyObservers(null, "chat-update-topic");
   },
-  
+
   _getParticipant: function(aNick) {
-    if (!this._participants[normalize(aNick, true)])
-      this._participants[aNick] = new ConvChatBuddy(aNick);
-    return this._participants[aNick];
+    let aNormalizedNick = normalize(aNick, true);
+    if (!this._participants.hasOwnProperty(aNormalizedNick))
+      this._participants[aNormalizedNick] = new ConvChatBuddy(aNick);
+    return this._participants[aNormalizedNick];
+  },
+  _removeParticipant: function(aNick) {
+    let aNormalizedNick = normalize(aNick, true);
+    if (!this._participants.hasOwnProperty(aNormalizedNick))
+      delete this._participants[aNormalizedNick];
   }
-}
+};
 Chat.prototype.__proto__ = GenericChatConversationPrototype;
 
 function ConvChatBuddy(aName) {
-  if ("@%+".indexOf(aName[0]) != -1) { // Handle user levels
-    switch (aName[0]) {
-      case "@":
-        this.op = true;
-        break;
-      case "%":
-        this.halfOp = true;
-        break;
-      case "+":
-        this.voiced = true;
-        break;
-    }
-    aName = aName.slice(1);
+  // XXX move this outside function?
+  const mode = {"@": "op", "%": "halfOp", "+": "voiced"};
+  if (aName[0] in mode) {
+    this[mode[aName[0]]] = true;
+    aName = aName.slice(1)
   }
   this._name = aName;
-}
-ConvChatBuddy.prototype = {
-  get name() this._name
 }
 ConvChatBuddy.prototype.__proto__ = GenericConvChatBuddyPrototype;
 
 function Conversation(aAccount, aName) {
-  this._init(aAccount);
   this._name = aName;
+  this._init(aAccount);
 }
 Conversation.prototype = {
   sendMsg: function(aMessage) {
@@ -150,36 +136,39 @@ Conversation.prototype.__proto__ = GenericConversationPrototype;
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
+  this._conversations = {};
+  this._buddies = {};
 }
 Account.prototype = {
   _conv: null, // XXX Remove me eventually
-  _conversations: {},
   _socketTransport: null,
   _inputStream: null,
   _outputStream: null,
   _scritableInputStream: null,
+  _inputStreamBuffer: "",
   _pump: null,
   _server: "irc.mozilla.org",
   //_server: "localhost",
   _port: 6667,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
   _realname: "clokep",
-  _buddies: {},
 
   // Data listener object
   onStartRequest: function(request, context) { },
   onStopRequest: function(request, context, status) { },
   onDataAvailable: function(request, context, inputStream, offset, count) {
-    let data = this._scriptableInputStream.read(count).split(/\r\n/);
-    for (var i = 0; i < data.length; i++)
-      if (data[i].length) // Skip empty messages
-        this._handleMessage(data[i]);
+    let data = this._inputStreamBuffer + this._scriptableInputStream.read(count);
+    data = data.split(/\r\n/);
+    for (var i = 0; i < (data.length - 1); i++)
+      this._handleMessage(data[i]);
+    // Store the (possible) incomplete part
+    this._inputStreamBuffer = data[data.length - 1];
   },
-  
-  connect: function() {    
+
+  connect: function() {
     this.base.connecting();
-    let self = this;
-    this._conv = new Conversation(self, this._server); // XXX Remove me eventually
+
+    this._conv = new Conversation(this, this._server); // XXX Remove me eventually
     this._conv.writeMessage(this._server, "You're now chatting on IRC!", {system: true});
 
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
@@ -188,8 +177,8 @@ Account.prototype = {
                                                                    this._server, // Host
                                                                    this._port, // Port
                                                                    null); // Proxy info
-    // Add a socketTransport listener so we can give better info to this.base.connecting()
-    
+    // XXX Add a socketTransport listener so we can give better info to this.base.connecting()
+
     this._outputStream = this._socketTransport.openOutputStream(0, // flags
                                                                 0, // Use default segment size
                                                                 0); // Use default segment count
@@ -210,20 +199,23 @@ Account.prototype = {
                     0, // Use default segment length
                     false); // Do not close when done
     this._pump.asyncRead(this, null);
-    
-    this._connnectionRegistration();
+
+    this._connectionRegistration();
   },
-  
+
   disconnect: function() {
+    this.base.disconnecting(this._base.NO_ERROR,"Sending the QUIT message");
     this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
-    
+
+    // XXX Should we wait for confirmation or a certain amount of time, then
+    // force QUIT and close the sockets
     this._outputStream.close();
     this._inputStream.close();
     this._socketTransport.close(Components.results.NS_OK);
-    
+
     this.base.disconnected();
   },
-  
+
   /*
    * aComponents implements purpleIChatRoomFieldValues
    */
@@ -232,14 +224,14 @@ Account.prototype = {
     dump(JSON.stringify(aComponents));
     this._base.joinChat(aComponents);
   },
-  
+
   // Attributes
   get canJoinChat() true,
-  
+
   // Private functions
   /*
    * See section 2.3 of RFC 2812
-   * 
+   *
    * parseMessage takes the message string and pulls useful information out. It
    * returns a message object which contains:
    *   source..........source of the message
@@ -255,14 +247,22 @@ Account.prototype = {
     aMessage.rawMessage = aData;
     let temp;
 
+    // Splits the raw string into four parts (the second is required)
+    //   source
+    //   command
+    //   [parameter]
+    //   [:last paramter]
     if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
-      // Assume from server if not specified
+      // Assume message is from the server if not specified
       aMessage.source = temp[1] || this._server;
       aMessage.command = temp[2];
+      // Space separated parameters
       aMessage.params = temp[3] ? temp[3].trim().split(/ +/) : [];
-      if (temp[4])
+      if (temp[4]) // Last parameter can contain spaces
         aMessage.params.push(temp[4]);
-      
+
+      // The source string can be split into multiple parts as:
+      //   :(server|nickname[[!user]@host]
       if ((temp = aMessage.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
         aMessage.nickname = temp[1];
         aMessage.user = temp[2] || null; // Optional
@@ -271,21 +271,23 @@ Account.prototype = {
     }
     return aMessage;
   },
-  
+
   /*
    * Implement Section 5 of RFC 2812
    */
+  // Remove aConversation blah blah
   _handleMessage: function(aRawMessage) {
     var aMessage = this._parseMessage(aRawMessage);
     dump(JSON.stringify(aMessage));
     if (!aMessage.source) // No real message
       return;
-   
+
     // Handle command responses
     switch (aMessage.command.toUpperCase()) {
       case "ERROR":
         // ERROR <error message>
         // Report the error
+        // XXX Disconnect here?
         this._conv.writeMessage(aMessage.source,
                                 aMessage.rawMessage,
                                 {system: true, error: true});
@@ -326,10 +328,11 @@ Account.prototype = {
         break;
       case "NOTICE":
         // NOTICE <msgtarget> <text>
-        // XXX
-        this._conv.writeMessage(aMessage.source,
-                                aMessage.params.join(" "),
-                                {system: true});
+        this._getConversation(aMessage.params[0]).writeMessage(
+          aMessage.nickname || aMessage.source,
+          aMessage.params[1],
+          {incoming: true}
+        );
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
@@ -355,7 +358,7 @@ Account.prototype = {
             new nsSimpleEnumerator([aStringNickname]),
             "chat-buddy-remove"
           );
-          delete aConversation._getParticipant(aMessage.nickname);
+          aConversation._removeParticipant(aMessage.nickname);
         }
         break;
       case "PING":
@@ -548,7 +551,7 @@ Account.prototype = {
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
-        var aConversation = this._getConversation(aMessage.params[0])
+        var aConversation = this._getConversation(aMessage.params[0]);
         aConversation.writeMessage(aMessage.params[0],
                                    aMessage.params[1],
                                    {system: true});
@@ -666,7 +669,7 @@ Account.prototype = {
           //if (!this._buddies[aNickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
           //  this._buddies[aNickname] = {}; // XXX new Buddy()?
         }, this);
-        
+
         // Notify of only the ADDED participants
         aConversation.notifyObservers(aConversation.getParticipants(),
                                       "chat-buddy-add");
@@ -931,39 +934,40 @@ Account.prototype = {
         break; // Do nothing
     }
   },
-  
+
   /*
    * Returns a conversation (creates it if it doesn't exist)
    */
   _getConversation: function(aConversationName) {
     // Handle Scandanavian lower case
-    let aNormalizedConversationName = normalize(aConversationName)
-    if (!this._conversations[aNormalizedConversationName])
+    let aNormalizedConversationName = normalize(aConversationName);
+    if (!this._conversations.hasOwnProperty(aNormalizedConversationName))
       if ("&#+!".indexOf(aNormalizedConversationName.charAt(0)) != -1)
         this._conversations[aNormalizedConversationName] = new Chat(this, aConversationName);
       else
         this._conversations[aNormalizedConversationName] = new Conversation(this, aConversationName);
     return this._conversations[aNormalizedConversationName];
   },
-  
+
   _sendMessage: function(aCommand, aParams, aTarget) {
-    let aMessage = aCommand;
+    let message = aCommand;
     if (aTarget)
-      aMessage += " " + aTarget;
-    if (aParams && aParams.length)
-      if (aParams.length > 1)
-        aMessage += " "  + aParams.slice(0,-1).join(" ") + " :" + aParams.slice(-1);
-      else
-        aMessage += " :" + aParams[0];
+      message += " " + aTarget;
+    if (aParams && aParams.length) {
+      // Join the parameters with spaces, except the last parameter which gets
+      // joined with a " :" before it (and can contain spaces)
+      let params = aParams;
+      params[params.length - 1] = ":" + params[params.length - 1];
+      message += " " + params.join(" ");
+    }
     // XXX should check length of aMessage?
-    aMessage += "\r\n";
-    //aMessage = aCommand + " " + aTarget + " :" + aParams.join(" ") + "\r\n";
-    dump("Sending... " + aMessage);
-    this._outputStream.write(aMessage, aMessage.length);
+    message += "\r\n";
+    dump("Sending... " + message);
+    this._outputStream.write(message, message.length);
   },
-  
+
   // Implement section 3.1 of RFC 2812
-  _connnectionRegistration: function() {
+  _connectionRegistration: function() {
     if (this.password) // Password message, if provided
       this._sendMessage("PASS", [], this.password);
     this._sendMessage("NICK", [], this.name); // Nick message
@@ -981,4 +985,3 @@ IRCProtocol.prototype = {
 IRCProtocol.prototype.__proto__ = GenericProtocolPrototype;
 
 const NSGetFactory = XPCOMUtils.generateNSGetFactory([IRCProtocol]);
-

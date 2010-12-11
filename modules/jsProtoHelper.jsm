@@ -464,6 +464,9 @@ const GenericChatConversationPrototype = {
     this._participants = {};
     obs.notifyObservers(this, "new-conversation", null);
   },
+  _name: "Chat Conversation",
+  _topic: null,
+  _topicSetter: null,
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
@@ -504,22 +507,16 @@ const GenericChatConversationPrototype = {
     (new Message(aWho, aText, aProperties)).conversation = this;
   },
 
-  get name() "Chat Conversation",
+  get name() this._name,
   get normalizedName() this.name.toLowerCase(),
   get title() this.name,
   get isChat() true,
-  get topic() "Topic",
-  get topicSetter() "Topic Setter",
+  get topic() this._topic,
+  get topicSetter() this._topicSetter,
   get left() false,
 
   account: null,
   getParticipants: function() {
-    // write some generic magic here that gives the result based on a JS object
-    // or array you put in the object, _participants for example :)
-    /*let participants = new Array();
-    for each (let participant in this._participants)
-      participants.push(participant);
-    return new nsSimpleEnumerator(participants);*/
     return new nsSimpleEnumerator(
       Object.keys(this._participants)
             .map(function(key) { return this._participants[key]; },this)
@@ -541,9 +538,10 @@ const GenericConvChatBuddyPrototype = {
   flags: 0,
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
 
-  name: "ConvChatBuddy",
+  _name: "ConvChatBuddy",
   alias: "",
 
+  get name() this._name,
   get noFlags() !(this.voiced || this.halfOp || this.op ||
                   this.founder || this.typing),
   voiced: false,
