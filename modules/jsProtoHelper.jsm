@@ -45,6 +45,9 @@ var EXPORTED_SYMBOLS = [
   "GenericConversationPrototype",
   "GenericChatConversationPrototype",
   "GenericConvChatBuddyPrototype",
+  "GenericUsernameSplitPrototype",
+  "purplePref",
+  "purpleProxyInfo",
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
   "Message",
@@ -206,7 +209,7 @@ const GenericAccountPrototype = {
 };
 
 
-var GenericAccountBuddyPrototype = {
+const GenericAccountBuddyPrototype = {
   _init: function(aAccount, aBuddy, aTag) {
     this._tag = aTag;
     this._account = aAccount;
@@ -549,6 +552,114 @@ const GenericConvChatBuddyPrototype = {
   founder: false,
   typing: false
 };
+
+const GenericUsernameSplitPrototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
+                                         Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports,Ci.purpleIUsernameSplit];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLangauge: function(language) null,
+  contractID: null,
+  classDescription: "Username Split object",
+  classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+
+  get reverse() this.base.reverse,
+  get separator() this.base.separator,
+  get label() this.base.label
+}
+
+function purplePref(name, label, type, masked, defaultValue) {
+  this.name = name; // Preference name
+  this.label = label; // Text to display
+  this.type = type;
+  this.masked = masked; // Obscured from view
+
+  if (defaultValue)
+    this._defaultValue = defaultValue;
+}
+purplePref.prototype = {
+  get typeBool() 1,
+  get typeInt() 2,
+  get typeString() 3,
+  get typeList() 4,
+
+  // Default value
+  getBool: function() this._defaultValue || false,
+  getInt: function() this._defaultValue || 0,
+  getString: function() this._defaultValue || "",
+  getList: function() (purpleKeyValuePairs(this._defaultValue)) ||
+                      (new EmptyEnumerator()),
+
+  get classDescription() "Preference for Account Options",
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
+};
+
+// Convert a JavaScript object mapping {"name1": "value1", "name2": "value2"}
+function purpleKeyValuePairs(obj) {
+  return new nsSimpleEnumerator(
+    Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key]))
+  );
+}
+
+function purpleKeyValuePair(name, value) {
+  this.name = name;
+  this.value = value;
+}
+purpleKeyValuePair.prototype = {
+  get classDescription() "Key Value Pair for Preferences",
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
+};
+
+function purpleProxyInfo(type) {
+  this.type = type;
+}
+purpleProxyInfo.prototype = {
+  get useGlobal() -1,
+  get noProxy() 0,
+  get httpProxy() 1,
+  get socks4Proxy() 2,
+  get socks5Proxy() 3,
+  get useEnvVar() 4,
+
+  get classDescription() "Preference for Account Options",
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
+};
+function purpleProxy(host, port, username, password) {
+  this.host = host;
+  this.port = port;
+  this.username = username ? username : "";
+  this.password = password ? password : "";
+}
+purpleProxy.prototype = purpleProxyInfo.prototype;
 
 // the name getter needs to be implemented
 const GenericProtocolPrototype = {

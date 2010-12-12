@@ -150,7 +150,9 @@ Conversation.prototype = {
 Conversation.prototype.__proto__ = GenericConversationPrototype;
 
 function Account(aProtoInstance, aKey, aName) {
-  this._init(aProtoInstance, aKey, aName);
+  let matches = aName.split("@", 2);
+  this._init(aProtoInstance, aKey, matches[0]);
+  this._server = matches[1];
   this._conversations = {};
   this._buddies = {};
 }
@@ -161,11 +163,11 @@ Account.prototype = {
   _scritableInputStream: null,
   _inputStreamBuffer: "",
   _pump: null,
-  _server: "irc.mozilla.org",
-  //_server: "localhost",
   _port: 6667,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
   _realname: "clokep",
+
+  proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
 
   // Data listener object
   onStartRequest: function(request, context) { },
@@ -1033,12 +1035,31 @@ Account.prototype = {
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
 
-function IRCProtocol() { }
-IRCProtocol.prototype = {
+function Protocol() { }
+Protocol.prototype = {
   get name() "IRC-JS",
+  get iconBaseURI() "chrome://prpl-irc/skin/",
+  get baseId() "prpl-irc",
+
+  getOptions: function() {
+    // XXX figure out how to access the constants for these
+    let prefs = [new purplePref("port", "Port", 2, false, 6667),
+                 new purplePref("encoding", "Encodings", 3, false, "UTF-8"),
+                 new purplePref("autodetect_utf8",
+                                "Auto-detect incoming UTF-8",
+                                1),
+                 new purplePref("username", "Username", 3),
+                 new purplePref("realname", "Real name", 3),
+                 //new purplePref("quitmsg", "Quit message", 3),
+                 new purplePref("ssl", "Use SSL", 1)];
+    return new nsSimpleEnumerator(prefs);
+  },
+
+  get chatHasTopic() true,
+
   getAccount: function(aKey, aName) new Account(this, aKey, aName),
   classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}")
 };
-IRCProtocol.prototype.__proto__ = GenericProtocolPrototype;
+Protocol.prototype.__proto__ = GenericProtocolPrototype;
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([IRCProtocol]);
+const NSGetFactory = XPCOMUtils.generateNSGetFactory([Protocol]);
