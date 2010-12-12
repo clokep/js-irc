@@ -49,8 +49,6 @@
  *   ISupport (response code 005; supported by most servers) -- http://www.irc.org/tech_docs/draft-brocklesby-irc-isupport-03.txt
  */
 
-// TODO Can we auto-detect character encoding?
-
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
@@ -93,6 +91,10 @@ Chat.prototype = {
     this.notifyObservers(null, "chat-update-topic");
   },
 
+  _hasParticipant: function(aNick) {
+    return this._participants.hasOwnProperty(normalize(aNick, true));
+  },
+
   _getParticipant: function(aNick, aNotifyObservers) {
     let normalizedNick = normalize(aNick, true);
     if (!this._participants.hasOwnProperty(normalizedNick)) {
@@ -100,7 +102,7 @@ Chat.prototype = {
 
       if (aNotifyObservers) {
         this.notifyObservers(
-          new nsSimpleEnumerator([this._participants[aNormalizedNick]]),
+          new nsSimpleEnumerator([this._participants[normalizedNick]]),
           "chat-buddy-add"
         );
       }
@@ -153,7 +155,6 @@ function Account(aProtoInstance, aKey, aName) {
   this._buddies = {};
 }
 Account.prototype = {
-  _conv: null, // XXX Remove me eventually
   _socketTransport: null,
   _inputStream: null,
   _outputStream: null,
@@ -183,9 +184,6 @@ Account.prototype = {
 
   connect: function() {
     this.base.connecting();
-
-    this._conv = new Conversation(this, this._server); // XXX Remove me eventually
-    this._conv.writeMessage(this._server, "You're now chatting on IRC!", {system: true});
 
     var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
     this._socketTransport = socketTransportService.createTransport(null, // Socket type
@@ -294,12 +292,14 @@ Account.prototype = {
     switch (message.command.toUpperCase()) {
       case "ERROR":
         // ERROR <error message>
-        // Report the error
+        // Client connection has been terminated
+        for each (let conversation in this._conversations) {
+          conversation.writeMessage(message.source,
+                                      "Your account has been disconnected.",
+                                      {system: true});
+        }
+        // Notify account manager
         this._disconnect();
-        // XXX write to each conversation?
-        this._conv.writeMessage(message.source,
-                                message.rawMessage,
-                                {system: true, error: true});
         break;
       case "INVITE":
         // INVITE  <nickname> <channel>
@@ -345,7 +345,6 @@ Account.prototype = {
         break;
       case "NOTICE":
         // NOTICE <msgtarget> <text>
-        //this._getConversation(message.params[0]).writeMessage(
         this._getConversation(message.source).writeMessage(
           message.nickname || message.source,
           message.params[1],
@@ -354,14 +353,14 @@ Account.prototype = {
         break;
       case "PART":
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
-        // Display the message and remove them from the room
+        // Display the message and remove them from the rooms they're in
         for each (let channelName in message.params[0].split(",")) {
           let conversation = this._getConversation(channelName);
           let partMessage;
           if (message.nickname == this.name) // XXX remove all buddies?
-            partMessage = "You have left the room: (Part";
+            partMessage = "You have left the room (Part";
           else
-            partMessage = message.nickname + " has left the room: (Part";
+            partMessage = message.nickname + " has left the room (Part";
           // If a part message was included, show it
           if (message.params.length == 2)
             partMessage += ": " + message.params[1];
@@ -379,6 +378,7 @@ Account.prototype = {
         break;
       case "PRIVMSG":
         // PRIVMSG <msgtarget> <text to be sent>
+        // Display message in conversation
         this._getConversation(message.params[0]).writeMessage(
           message.nickname || message.source,
           message.params[1],
@@ -387,7 +387,20 @@ Account.prototype = {
         break;
       case "QUIT":
         // QUIT [ < Quit Message> ]
-        // XXX Needs to loop over every conversation with the user and display that they quit
+        // Loop over every conversation with the user and display that they quit
+        for each (let conversation in this._conversations) {
+          if (conversation._hasParticipant(message.nickname)) {
+            let quitMessage = message.nickname + " has left the room (Quit";
+            // If a quit message was included, show it
+            if (message.params.length)
+              quitMessage += ": " + message.params[0];
+            quitMessage += ").";
+            conversation.writeMessage(message.source,
+                                      quitMessage,
+                                      {system: true});
+            conversation._removeParticipant(message.nickname);
+          }
+        }
         break;
       case "SQUIT":
         // XXX do we need this?
@@ -417,9 +430,11 @@ Account.prototype = {
         // Try server <server name>, port <port number>
         // XXX irc.mozilla.org seems to respond with a list of available
         //     commands and limits the server supports
-        this._conv.writeMessage(message.source,
-                                message.params.slice(1).join(" "),
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+            message.source,
+            message.params.slice(1).join(" "),
+            {system: true}
+        );
         break;
       case "200": // RPL_TRACELINK
         // Link <version & debug level> <destination> <next server> V<protocol version> <link updateime in seconds> <backstream sendq> <upstream sendq>
@@ -536,9 +551,11 @@ Account.prototype = {
       case "259": // RPL_ADMINEMAIL
         // :<admin info>
         // XXX parse this for a contact email
-        this._conv.writeMessage(message.source,
-                                message.params.slice(1).join(" "), // skip nickname
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "), // skip nickname
+          {system: true}
+        );
         break;
       case "261": // RPL_TRACELOG
         // File <logfile> <debug level>
@@ -554,9 +571,11 @@ Account.prototype = {
         // :Current Local Users: <integer>  Max: <integer>
       case "266": // XXX nonstandard
         // :Current Global Users: <integer>  Max: <integer>
-        this._conv.writeMessage(message.source,
-                                message.params[1], // skip nickname
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1], // skip nickname
+          {system: true}
+        );
       case "300": // RPL_NONE
         // Non-generic
         break;
@@ -714,16 +733,20 @@ Account.prototype = {
         break;
       case "371": // RPL_INFO
         // :<string>
-        this._conv.writeMessage(message.source,
-                                message.params[1],
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1],
+          {system: true}
+        );
         break;
       case "372": // RPL_MOTD
         // :- <text>
         if (message.params[1].length > 2) { // Ignore empty messages
-          this._conv.writeMessage(message.source,
-                                  message.params[1].slice(2),
-                                  {incoming: true});
+          this._getConversation(message.source).writeMessage(
+            message.source,
+            message.params[1].slice(2),
+            {incoming: true}
+          );
         }
         break;
       case "373": // RPL_INFOSTART
@@ -734,25 +757,31 @@ Account.prototype = {
         break;
       case "375": // RPL_MOTDSTART
         // :- <server> Message of the day -
-        this._conv.writeMessage(message.source,
-                                message.params[1].slice(2,-2),
-                                {incoming: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1].slice(2,-2),
+          {incoming: true}
+        );
         break;
       case "376": // RPL_ENDOFMOTD
         // :End of MOTD command
         break;
       case "381": // RPL_YOUREOPER
         // :You are now an IRC operator
-        this._conv.writeMessage(message.source,
-                                message.params[0],
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[0],
+          {system: true}
+        );
         // XXX update UI accordingly to show oper status
         break;
       case "382": // RPL_REHASHING
         // <config file> :Rehashing
-        this._conv.writeMessage(message.source,
-                                message.params.join(" "),
-                                {system: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.join(" "),
+          {system: true}
+        );
         break;
       case "383": // RPL_YOURESERVICE
         // You are service <servicename>
@@ -883,9 +912,11 @@ Account.prototype = {
       case "465": // ERR_YOUREBANEDCREEP
         // :You are banned from this server
         // XXX Disconnect account?
-        this._conv.writeMessage(message.source,
-                                message.rawMessage,
-                                {error: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.rawMessage,
+          {error: true}
+        );
         break;
       case "466": // ERR_YOUWILLBEBANNED
         // XXX we should disconnect here
@@ -933,16 +964,20 @@ Account.prototype = {
         // XXX could this happen?
       case "502": // ERR_USERSDONTMATCH
         // :Cannot change mode for other users
-        this._conv.writeMessage(message.source,
-                                message.rawMessage,
-                                {error: true});
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.rawMessage,
+          {error: true}
+        );
         break;
       default:
-        // Output it for debug
-        dump("Unhandled: " + message.rawMessage);
-        this._conv.writeMessage(message.source,
-                                message.rawMessage,
-                                {incoming: true});
+        // XXX Output it for debug
+        Cu.reportError("Unhandled: " + message.rawMessage);
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.rawMessage,
+          {error: true}
+        );
         break; // Do nothing
     }
   },
