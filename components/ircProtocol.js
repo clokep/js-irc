@@ -78,7 +78,7 @@ function Chat(aAccount, aName) {
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG", [aMessage], this.name);
+    this.account._sendMessage("PRIVMSG", [aMessage], this._nickname);
     this.writeMessage(this.account.name,
                       aMessage,
                       {outgoing: true});
@@ -150,11 +150,22 @@ Conversation.prototype = {
 Conversation.prototype.__proto__ = GenericConversationPrototype;
 
 function Account(aProtoInstance, aKey, aName) {
-  let matches = aName.split("@", 2);
-  this._init(aProtoInstance, aKey, matches[0]);
-  this._server = matches[1];
+  this._init(aProtoInstance, aKey, aName);
   this._conversations = {};
   this._buddies = {};
+
+  let matches = aName.split("@", 2);
+  this._nickname = matches[0];
+  this._server = matches[1];
+
+  // XXX load port, realname, etc. from preferences
+  //dump(this.getInt("port"));
+  // this._port = this.getInt("port");
+  this._port = 6667;
+  // this._realname = this.getString("realname");
+  this._realname = "clokep";
+  this._username = null;
+  this._usessl = false;
 }
 Account.prototype = {
   _socketTransport: null,
@@ -163,9 +174,7 @@ Account.prototype = {
   _scritableInputStream: null,
   _inputStreamBuffer: "",
   _pump: null,
-  _port: 6667,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
-  _realname: "clokep",
 
   proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
 
@@ -187,12 +196,12 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    var socketTransportService = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
-    this._socketTransport = socketTransportService.createTransport(null, // Socket type
-                                                                   0, // Length of socket types
-                                                                   this._server, // Host
-                                                                   this._port, // Port
-                                                                   null); // Proxy info
+    var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
+    this._socketTransport = socketTS.createTransport(null, // XXX Socket type
+                                                     0, // Length of socket types
+                                                     this._server, // Host
+                                                     this._port, // Port
+                                                     null); // XXX Proxy info
     // XXX Add a socketTransport listener so we can give better info to this.base.connecting()
 
     this._outputStream = this._socketTransport.openOutputStream(0, // flags
@@ -312,7 +321,7 @@ Account.prototype = {
         // Add the buddy to each channel
         for each (let channelName in message.params[0].split(",")) {
           let conversation = this._getConversation(channelName);
-          if (message.nickname != this.name) {
+          if (message.nickname != this._nickname) {
             // Don't do anything if you join, RPL_NAMES takes care of that case
             conversation._getParticipant(message.nickname, true);
             let joinMessage = message.nickname + " [<i>" + message.source +
@@ -345,6 +354,10 @@ Account.prototype = {
         // MODE <nickname *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
         // XXX keep track of our mode? Display in UI?
         break;
+      case "NICK":
+        // NICK <nickname>
+        // XXX handle a user changing name
+        break;
       case "NOTICE":
         // NOTICE <msgtarget> <text>
         this._getConversation(message.source).writeMessage(
@@ -359,7 +372,7 @@ Account.prototype = {
         for each (let channelName in message.params[0].split(",")) {
           let conversation = this._getConversation(channelName);
           let partMessage;
-          if (message.nickname == this.name) // XXX remove all buddies?
+          if (message.nickname == this._nickname) // XXX remove all buddies?
             partMessage = "You have left the room (Part";
           else
             partMessage = message.nickname + " has left the room (Part";
@@ -876,11 +889,11 @@ Account.prototype = {
       case "436": // ERR_NICKCOLLISION
         // <nick> :Nickname collision KILL from <user>@<host>
         // Take the returned nick and increment the last character
-        this.name = message.params[0].slice(0, -1) +
+        this._nickname = message.params[0].slice(0, -1) +
           String.fromCharCode(
             message.params[0].charCodeAt(message.params[0].length - 1) + 1
           );
-        this._sendMessage("NICK", [this.name]); // Nick message
+        this._sendMessage("NICK", [this._nickname]); // Nick message
         // XXX inform user?
         break;
       case "437": // ERR_UNAVAILRESOURCE
@@ -1019,8 +1032,10 @@ Account.prototype = {
   _connectionRegistration: function() {
     if (this.password) // Password message, if provided
       this._sendMessage("PASS", [], this.password);
-    this._sendMessage("NICK", [], this.name); // Nick message
-    this._sendMessage("USER", [this.name, this._mode, "*", this._realname]); // User message
+    this._sendMessage("NICK", [], this._nickname); // Nick message
+    this._sendMessage("USER", [this._username || this._nickname,
+                               this._mode, "*",
+                               this._realname]); // User message
   },
 
   _disconnect: function() {

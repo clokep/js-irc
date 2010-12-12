@@ -128,6 +128,10 @@ const GenericAccountPrototype = {
     this._base = new AccountBase();
     this._base.concreteAccount = this;
     this._base.init(aKey, aName, aProtoInstance);
+
+    this._prefs = Cc["@mozilla.org/preferences-service;1"]
+                    .getService(Ci.nsIPrefService)
+                    .getBranch("messenger.account." + this.id + ".options.");
   },
   get base() this._base.purpleIAccountBase,
 
@@ -154,6 +158,9 @@ const GenericAccountPrototype = {
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
   setInt: function(aName, aVal) this._base.setInt(aName, aVal),
   setString: function(aName, aVal) this._base.setString(aName, aVal),
+  getInt: function(aName) this._prefs.getIntPref(aName), // XXX these will crash if they don't exist
+  getString: function(aName) this._prefs.getCharPref(aName),
+  getBool: function(aName) this._prefs.getBoolPref(aName),
   save: function() this._base.save(),
 
   // grep attribute purpleIAccount.idl |sed 's/.* //;s/;//;s/\(.*\)/  get \1() this._base.\1,/'
