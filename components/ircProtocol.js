@@ -38,15 +38,20 @@
  * See RFC protocols (http://www.irchelp.org/irchelp/rfc/)
  *   RFC1459 (original RFC; superseded) -- http://tools.ietf.org/html/rfc1459
  *   RFC2810 (IRC architecture) -- http://tools.ietf.org/html/rfc2810
- *   RFC2811 (IRC channel management) -- http://tools.ietf.org/html/rfc2811 <-- Mostly for servers
+ *   RFC2811 (IRC channel management) -- http://tools.ietf.org/html/rfc2811
+ *     Mostly for servers
  *   RFC2812 (IRC client protocol) -- http://tools.ietf.org/html/rfc2812
- *   RFC2813 (IRC server protocol) -- http://tools.ietf.org/html/rfc2813 <-- Servers only
+ *   RFC2813 (IRC server protocol) -- http://tools.ietf.org/html/rfc2813
+ *     Servers only
  *
  *   DCC specification -- http://www.irchelp.org/irchelp/rfc/dccspec.html
  *   CTCP specification -- http://www.irchelp.org/irchelp/rfc/ctcpspec.html
- *   Updated CTCP specification (not fully supported by clients) -- http://www.invlogic.com/irc/ctcp.html
+ *   Updated CTCP specification -- http://www.invlogic.com/irc/ctcp.html
+ *     Not fully supported by clients
  *
- *   ISupport (response code 005; supported by most servers) -- http://www.irc.org/tech_docs/draft-brocklesby-irc-isupport-03.txt
+ *   ISupport -- http://tools.ietf.org/html/draft-brocklesby-irc-isupport-03
+ *     Response code 005; supported by most servers
+ *   Updated ISupport -- http://tools.ietf.org/html/draft-hardy-irc-isupport-00
  */
 
 var Cc = Components.classes;
@@ -165,7 +170,7 @@ function Account(aProtoInstance, aKey, aName) {
   // this._realname = this.getString("realname");
   this._realname = "clokep";
   this._username = null;
-  this._usessl = false;
+  this._ssl = false;
 }
 Account.prototype = {
   _socketTransport: null,
@@ -196,9 +201,10 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
-    this._socketTransport = socketTS.createTransport(null, // XXX Socket type
-                                                     0, // Length of socket types
+    var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
+                     .getService(Ci.nsISocketTransportService);
+    this._socketTransport = socketTS.createTransport(this._ssl ? "ssl" : null, // Socket type
+                                                     this._ssl? 1 : 0, // Length of socket types
                                                      this._server, // Host
                                                      this._port, // Port
                                                      null); // XXX Proxy info
@@ -1050,14 +1056,30 @@ Account.prototype = {
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
 
+function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
+  this.label = aLabel;
+  this.separator = aSeparator;
+  this.defaultValue = aDefaultValue;
+  this.reverse = aReverse || false;
+}
+UsernameSplit.prototype.__proto__ = GenericUsernameSplitPrototype;
+
 function Protocol() { }
 Protocol.prototype = {
   get name() "IRC-JS",
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
 
+  getUsernameSplit: function() {
+    return new nsSimpleEnumerator(new UsernameSplit("Server",
+                                                    "@",
+                                                    "irc.freenode.com",
+                                                    true));
+  },
+
   getOptions: function() {
     // XXX figure out how to access the constants for these
+    // XXX need to refer to these in the above code
     let prefs = [new purplePref("port", "Port", 2, false, 6667),
                  new purplePref("encoding", "Encodings", 3, false, "UTF-8"),
                  new purplePref("autodetect_utf8",

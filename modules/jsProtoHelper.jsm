@@ -574,10 +574,6 @@ const GenericUsernameSplitPrototype = {
   classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-
-  get reverse() this.base.reverse,
-  get separator() this.base.separator,
-  get label() this.base.label
 }
 
 function purplePref(name, label, type, masked, defaultValue) {
