@@ -46,7 +46,7 @@ var EXPORTED_SYMBOLS = [
   "GenericConvIMPrototype",
   "GenericConvChatPrototype",
   "GenericConvChatBuddyPrototype",
-  "GenericUsernameSplitPrototype",
+  "UsernameSplit",
   "purplePref",
   "purpleProxyInfo",
   "GenericProtocolPrototype",
@@ -549,7 +549,13 @@ const GenericConvChatBuddyPrototype = {
   typing: false
 };
 
-const GenericUsernameSplitPrototype = {
+function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
+  this.label = aLabel;
+  this.separator = aSeparator;
+  this.defaultValue = aDefaultValue;
+  this.reverse = aReverse || false;
+}
+UsernameSplit.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
                                          Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
@@ -557,12 +563,12 @@ const GenericUsernameSplitPrototype = {
     countRef.value = interfaces.length;
     return interfaces;
   },
-  getHelperForLangauge: function(language) null,
+  getHelperForLanguage: function(language) null,
   contractID: null,
   classDescription: "Username Split object",
   classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: 0,
+  flags: 0
 };
 
 function purplePref(name, label, type, masked, defaultValue) {

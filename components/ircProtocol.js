@@ -1111,25 +1111,17 @@ Account.prototype = {
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
 
-function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
-  this.label = aLabel;
-  this.separator = aSeparator;
-  this.defaultValue = aDefaultValue;
-  this.reverse = aReverse || false;
-}
-UsernameSplit.prototype.__proto__ = GenericUsernameSplitPrototype;
-
 function Protocol() { }
 Protocol.prototype = {
-  get name() "IRC",
+  get name() "IRC-JS",
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
 
   getUsernameSplit: function() {
-    return new nsSimpleEnumerator(new UsernameSplit("Server",
-                                                    "@",
-                                                    "irc.freenode.com",
-                                                    true));
+    return new nsSimpleEnumerator([new UsernameSplit("Server",
+                                                     "@",
+                                                     "irc.freenode.com",
+                                                     true)]);
   },
 
   getOptions: function() {
