@@ -78,8 +78,7 @@ function normalize(aStr, aRemoveStatus) {
 }
 
 function Chat(aAccount, aName) {
-  this._name = aName;
-  this._init(aAccount);
+  this._init(aAccount, aName);
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
@@ -116,7 +115,7 @@ Chat.prototype = {
   },
   _removeParticipant: function(aNick) {
     let normalizedNick = normalize(aNick, true);
-    if (!this._participants.hasOwnProperty(normalizedNick)) {
+    if (this._participants.hasOwnProperty(normalizedNick)) {
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
       stringNickname.data = aNick;
@@ -129,24 +128,44 @@ Chat.prototype = {
 Chat.prototype.__proto__ = GenericConvChatPrototype;
 
 function ConvChatBuddy(aName) {
-  // XXX move this outside function?
-  const mode = {"@": "op", "%": "halfOp", "+": "voiced"};
-  if (aName[0] in mode) {
-    this[mode[aName[0]]] = true;
+  // XXX move this outside the function?
+  const nameModes = {"@": "op", "%": "halfOp", "+": "voiced"};
+  if (aName[0] in nameModes) {
+    this[nameModes[aName[0]]] = true;
     aName = aName.slice(1)
   }
   this._name = aName;
 }
+ConvChatBuddy.prototype = {
+  _setMode: function(aNewMode) {
+    const modes = {"a": "away", // User is flagged as away
+                   "i": "invisible", // Marks a user as invisible
+                   "w": "wallop", // User receives wallops
+                   "r": "restricted", // Restricted user connection
+                   "o": "op", // Operator flag
+                   "O": "lop", // Local operator flag
+                   "s": "server"}; // User receives server notices
+                   //XXX voice, channel creator? see 4.1 of RFC 2811
+
+    // Are we going to add or remove the mode?
+    let newMode = (aNewMode[0] == "+") ? true : false;
+
+    // Check each mode being added and update the user
+    for (let i = 1; i < aNewMode.length; i++) {
+      if (aNewMode[i] in modes)
+        this[modes[aNewMode[i]]] = newMode;
+    }
+  }
+};
 ConvChatBuddy.prototype.__proto__ = GenericConvChatBuddyPrototype;
 
 function Conversation(aAccount, aName) {
-  this._name = aName;
-  this._init(aAccount);
+  this._init(aAccount, aName);
 }
 Conversation.prototype = {
   sendMsg: function(aMessage) {
     this.account._sendMessage(aMessage);
-    this.writeMessage(this.account.name,
+    this.writeMessage(this.account._nickname,
                       aMessage,
                       {outgoing: true});
   },
@@ -357,12 +376,41 @@ Account.prototype = {
         }
         break;
       case "MODE":
-        // MODE <nickname *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
-        // XXX keep track of our mode? Display in UI?
+        // MODE <nickname> *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
+        if (message.params.length == 3) {
+          // Update the mode of a ConvChatBuddy & display in UI
+          let conversation = this._getConversation(message.params[0]);
+          let convChatBuddy = conversation._getParticipant(message.params[2]);
+          convChatBuddy._setMode(message.params[1]);
+          let modeMessage = "mode (" + message.params[1] + " " +
+                              message.params[2] + ") by " + message.nickname;
+          conversation.writeMessage(message.nickname,
+                                    modeMessage,
+                                    {system: true});
+          conversation.notifyObservers(convChatBuddy, "chat-buddy-update");
+        } else {
+          // XXX keep track of our mode? Display in UI?
+        }
         break;
       case "NICK":
         // NICK <nickname>
-        // XXX handle a user changing name
+        for each (let conversation in this._conversations) {
+          if (conversation.isChat) {
+            // Update the nick in every chat conversation
+            let oldNick = message.nickname;
+            let convChatBuddy = conversation._getParticipant(message.nickname);
+            convChatBuddy._name = message.params[0];
+
+            let nickMessage = message.nickname + " is now known as " +
+                                message.params[0];
+            conversation.writeMessage(message.nickname,
+                                      nickMessage,
+                                      {system: true});
+            conversation.notifyObservers(convChatBuddy,
+                                         "chat-buddy-update",
+                                         message.nickname); // Old nickname
+          }
+        }
         break;
       case "NOTICE":
         // NOTICE <msgtarget> <text>
@@ -449,8 +497,7 @@ Account.prototype = {
         // XXX parse the available modes, let the UI respond and inform the user
       case "005": // RPL_BOUNCE
         // Try server <server name>, port <port number>
-        // XXX irc.mozilla.org seems to respond with a list of available
-        //     commands and limits the server supports
+        // XXX See ISupport documentation
         this._getConversation(message.source).writeMessage(
             message.source,
             message.params.slice(1).join(" "),
@@ -605,7 +652,7 @@ Account.prototype = {
         var conversation = this._getConversation(message.params[0]);
         conversation.writeMessage(message.params[0],
                                    message.params[1],
-                                   {system: true});
+                                   {autoResponse: true});
         // XXX set user as away on buddy list / conversation lists
         break;
       case "302": // RPL_USERHOST

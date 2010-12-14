@@ -399,8 +399,9 @@ Message.prototype = {
 
 const GenericConversationPrototype = {
   _lastId: 0,
-  _init: function(aAccount) {
+  _init: function(aAccount, aName) {
     this.account = aAccount;
+    this._name = aName;
     this.id = ++GenericConversationPrototype._lastId;
 
     this._observers = [];
@@ -441,10 +442,13 @@ const GenericConversationPrototype = {
   close: function() { },
 
   writeMessage: function(aWho, aText, aProperties) {
+    // XXX use username split here? Do we care about aliases?
+    if (aText.indexOf(this.account.name) != -1)
+      aProperties.containsNick = true;
     (new Message(aWho, aText, aProperties)).conversation = this;
   },
 
-  get name() "Conversation",
+  get name() this._name,
   get normalizedName() this.name.toLowerCase(),
   get title() this.name,
   isChat: false,
@@ -452,8 +456,6 @@ const GenericConversationPrototype = {
 };
 
 const GenericConvIMPrototype = {
-  _name: "Conversation",
-
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvIM, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
     var interfaces = [
@@ -484,12 +486,12 @@ const GenericConvIMPrototype = {
 GenericConvIMPrototype.__proto__ = GenericConversationPrototype;
 
 const GenericConvChatPrototype = {
-  _name: "Chat Conversation",
   _topic: null,
   _topicSetter: null,
 
-  _init: function(aAccount) {
+  _init: function(aAccount, aName) {
     this.account = aAccount;
+    this._name = aName;
     this.id = ++GenericConversationPrototype._lastId;
 
     this._observers = [];
@@ -561,7 +563,7 @@ const GenericUsernameSplitPrototype = {
   classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-}
+};
 
 function purplePref(name, label, type, masked, defaultValue) {
   this.name = name; // Preference name
