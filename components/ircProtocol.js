@@ -88,6 +88,11 @@ Chat.prototype = {
                       {outgoing: true});
   },
 
+  close: function() {
+    this.account._sendMessage("PART", [this.name]);
+    this.account._removeConversation(this.name);
+  },
+
   setTopic: function(aTopic, aTopicSetter) {
     this._topic = aTopic;
     this._topicSetter = aTopicSetter;
@@ -169,7 +174,9 @@ Conversation.prototype = {
                       aMessage,
                       {outgoing: true});
   },
-  get name() this._name
+  close: function() {
+    this.account._removeConversation(this.name);
+  }
 };
 Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
@@ -432,6 +439,8 @@ Account.prototype = {
         // PART <channel> *( "," <channel> ) [ <Part Message> ]
         // Display the message and remove them from the rooms they're in
         for each (let channelName in message.params[0].split(",")) {
+          if (!this._hasConversation(channelName))
+            continue; // Handle when we closed the window
           let conversation = this._getConversation(channelName);
           let partMessage;
           if (message.nickname == this._nickname) // XXX remove all buddies?
@@ -1058,6 +1067,10 @@ Account.prototype = {
     }
   },
 
+  _hasConversation: function(aConversationName) {
+    return this._conversations.hasOwnProperty(normalize(aConversationName));
+  },
+
   /*
    * Returns a conversation (creates it if it doesn't exist)
    */
@@ -1070,6 +1083,12 @@ Account.prototype = {
         new constructor(this, aConversationName);
     }
     return this._conversations[normalizedName];
+  },
+
+  _removeConversation: function(aConversationName) {
+    let normalizedName = normalize(aConversationName);
+    if (this._conversations.hasOwnProperty(normalizedName))
+      delete this._conversations[normalizedName];
   },
 
   _sendMessage: function(aCommand, aParams, aTarget) {
@@ -1085,7 +1104,7 @@ Account.prototype = {
     }
     // XXX should check length of aMessage?
     message += "\r\n";
-    dump("Sending... " + message);
+    dump("Sending... <" + message.trim() + ">");
     this._outputStream.write(message, message.length);
   },
 
