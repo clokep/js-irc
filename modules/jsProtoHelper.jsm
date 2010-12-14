@@ -20,6 +20,7 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
+ *   Patrick Cloke <clokep@gmail.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -42,8 +43,8 @@ var EXPORTED_SYMBOLS = [
   "EmptyEnumerator",
   "GenericAccountPrototype",
   "GenericAccountBuddyPrototype",
-  "GenericConversationPrototype",
-  "GenericChatConversationPrototype",
+  "GenericConvIMPrototype",
+  "GenericConvChatPrototype",
   "GenericConvChatBuddyPrototype",
   "GenericUsernameSplitPrototype",
   "purplePref",
@@ -406,11 +407,9 @@ const GenericConversationPrototype = {
     obs.notifyObservers(this, "new-conversation", null);
   },
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvIM, Ci.nsIClassInfo]),
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
-    var interfaces = [
-      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvIM
-    ];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation];
     countRef.value = interfaces.length;
     return interfaces;
   },
@@ -440,6 +439,36 @@ const GenericConversationPrototype = {
     throw Cr.NS_ERROR_NOT_IMPLEMENTED;
   },
   close: function() { },
+
+  writeMessage: function(aWho, aText, aProperties) {
+    (new Message(aWho, aText, aProperties)).conversation = this;
+  },
+
+  get name() "Conversation",
+  get normalizedName() this.name.toLowerCase(),
+  get title() this.name,
+  isChat: false,
+  account: null
+};
+
+const GenericConvIMPrototype = {
+  _name: "Conversation",
+
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvIM, Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [
+      Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvIM
+    ];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  /*getHelperForLanguage: function(language) null,
+  contractID: null,*/
+  classDescription: "ConvIM object",
+  /*classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: Ci.nsIClassInfo.DOM_OBJECT,*/
+
   sendTyping: function(aLength) { },
 
   updateTyping: function(aState) {
@@ -452,19 +481,18 @@ const GenericConversationPrototype = {
       this.typingState = aState;
     this.notifyObservers(null, "update-typing", null);
   },
-  writeMessage: function(aWho, aText, aProperties) {
-    (new Message(aWho, aText, aProperties)).conversation = this;
-  },
 
-  get name() "Conversation",
-  get normalizedName() this.name.toLowerCase(),
-  get title() this.name,
   get isChat() false,
-  account: null,
   buddy: null,
   typingState: Ci.purpleIConvIM.NOT_TYPING
 };
-const GenericChatConversationPrototype = {
+GenericConvIMPrototype.__proto__ = GenericConversationPrototype;
+
+const GenericConvChatPrototype = {
+  _name: "Chat Conversation",
+  _topic: null,
+  _topicSetter: null,
+
   _init: function(aAccount) {
     this.account = aAccount;
     this.id = ++GenericConversationPrototype._lastId;
@@ -473,9 +501,6 @@ const GenericChatConversationPrototype = {
     this._participants = {};
     obs.notifyObservers(this, "new-conversation", null);
   },
-  _name: "Chat Conversation",
-  _topic: null,
-  _topicSetter: null,
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
@@ -485,46 +510,18 @@ const GenericChatConversationPrototype = {
     countRef.value = interfaces.length;
     return interfaces;
   },
-  getHelperForLanguage: function(language) null,
-  contractID: null,
-  classDescription: "Conversation object",
-  classID: null,
+  /*getHelperForLanguage: function(language) null,
+  contractID: null,*/
+  classDescription: "ConvChat object",
+  /*classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: Ci.nsIClassInfo.DOM_OBJECT,
+  flags: Ci.nsIClassInfo.DOM_OBJECT,*/
 
-  addObserver: function(aObserver) {
-    if (this._observers.indexOf(aObserver) == -1)
-      this._observers.push(aObserver);
-  },
-  removeObserver: function(aObserver) {
-    let index = this._observers.indexOf(aObserver);
-    if (index != -1)
-      this._observers.splice(index, 1);
-  },
-  notifyObservers: function(aSubject, aTopic, aData) {
-    for each (let observer in this._observers)
-      observer.observe(aSubject, aTopic, aData);
-  },
-
-  doCommand: function(aMsg) false,
-  sendMsg: function (aMsg) {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
-  },
-  close: function() { },
-
-  writeMessage: function(aWho, aText, aProperties) {
-    (new Message(aWho, aText, aProperties)).conversation = this;
-  },
-
-  get name() this._name,
-  get normalizedName() this.name.toLowerCase(),
-  get title() this.name,
   get isChat() true,
   get topic() this._topic,
   get topicSetter() this._topicSetter,
   get left() false,
 
-  account: null,
   getParticipants: function() {
     return new nsSimpleEnumerator(
       Object.keys(this._participants)
@@ -532,7 +529,7 @@ const GenericChatConversationPrototype = {
     );
   }
 };
-//GenericChatConversationPrototype.__proto__ = GenericConversationPrototype;
+GenericConvChatPrototype.__proto__ = GenericConversationPrototype;
 
 const GenericConvChatBuddyPrototype = {
   get classDescription() "ConvChatBuddy object",

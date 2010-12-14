@@ -84,7 +84,7 @@ function Chat(aAccount, aName) {
 Chat.prototype = {
   sendMsg: function(aMessage) {
     this.account._sendMessage("PRIVMSG", [aMessage], this._nickname);
-    this.writeMessage(this.account.name,
+    this.writeMessage(this.account._nickname,
                       aMessage,
                       {outgoing: true});
   },
@@ -126,7 +126,7 @@ Chat.prototype = {
     }
   }
 };
-Chat.prototype.__proto__ = GenericChatConversationPrototype;
+Chat.prototype.__proto__ = GenericConvChatPrototype;
 
 function ConvChatBuddy(aName) {
   // XXX move this outside function?
@@ -152,7 +152,7 @@ Conversation.prototype = {
   },
   get name() this._name
 };
-Conversation.prototype.__proto__ = GenericConversationPrototype;
+Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
