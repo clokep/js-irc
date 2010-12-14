@@ -462,12 +462,7 @@ const GenericConvIMPrototype = {
     countRef.value = interfaces.length;
     return interfaces;
   },
-  /*getHelperForLanguage: function(language) null,
-  contractID: null,*/
   classDescription: "ConvIM object",
-  /*classID: null,
-  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: Ci.nsIClassInfo.DOM_OBJECT,*/
 
   sendTyping: function(aLength) { },
 
@@ -510,12 +505,7 @@ const GenericConvChatPrototype = {
     countRef.value = interfaces.length;
     return interfaces;
   },
-  /*getHelperForLanguage: function(language) null,
-  contractID: null,*/
   classDescription: "ConvChat object",
-  /*classID: null,
-  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: Ci.nsIClassInfo.DOM_OBJECT,*/
 
   get isChat() true,
   get topic() this._topic,
