@@ -100,9 +100,8 @@ Chat.prototype = {
     this.notifyObservers(null, "chat-update-topic");
   },
 
-  _hasParticipant: function(aNick) {
-    return this._participants.hasOwnProperty(normalize(aNick, true));
-  },
+  _hasParticipant: function(aNick)
+    this._participants.hasOwnProperty(normalize(aNick, true)),
 
   _getParticipant: function(aNick, aNotifyObservers) {
     let normalizedNick = normalize(aNick, true);
@@ -185,7 +184,7 @@ function Account(aProtoInstance, aKey, aName) {
   this._conversations = {};
   this._buddies = {};
 
-  let matches = aName.split("@", 2);
+  let matches = aName.split("@", 2); // XXX should this use the username split?
   this._nickname = matches[0];
   this._server = matches[1];
 
@@ -278,9 +277,23 @@ Account.prototype = {
    * aComponents implements purpleIChatRoomFieldValues
    */
   joinChat: function(aComponents) {
-    dump(this.getChatRoomDefaultFieldValue("Test"));
-    dump(JSON.stringify(aComponents));
-    this._base.joinChat(aComponents);
+    this._getConversation(aComponents.getValue("channel"));
+    // aComponents.getValue("password"); // XXX handle passwords here
+  },
+
+  getChatRoomFields: function() {
+    let fields = [new ChatRoomField("_Channel",
+                                    "channel",
+                                    Ci.purpleIChatRoomField.TYPE_TEXT,
+                                    true),
+                  new ChatRoomField("_Password",
+                                    "password",
+                                    Ci.purpleIChatRoomField.TYPE_PASSWORD,
+                                    false)];
+    return new nsSimpleEnumerator(fields);
+  },
+  getChatRoomDefaultFieldValues: function(aDefaultChatName) {
+    return new ChatRoomFieldValues();
   },
 
   // Attributes
@@ -1067,9 +1080,8 @@ Account.prototype = {
     }
   },
 
-  _hasConversation: function(aConversationName) {
-    return this._conversations.hasOwnProperty(normalize(aConversationName));
-  },
+  _hasConversation: function(aConversationName)
+    this._conversations.hasOwnProperty(normalize(aConversationName)),
 
   /*
    * Returns a conversation (creates it if it doesn't exist)

@@ -46,6 +46,8 @@ var EXPORTED_SYMBOLS = [
   "GenericConvIMPrototype",
   "GenericConvChatPrototype",
   "GenericConvChatBuddyPrototype",
+  "ChatRoomField",
+  "ChatRoomFieldValues",
   "UsernameSplit",
   "purplePref",
   "purpleProxyInfo",
@@ -549,6 +551,60 @@ const GenericConvChatBuddyPrototype = {
   typing: false
 };
 
+function ChatRoomField(aLabel, aIdentifier, aType, aRequired, aMin, aMax) {
+  this.label = aLabel;
+  this.identifier = aIdentifier;
+  this.type = aType;
+  this.required = aRequired || false;
+
+  this.min = aMin || 0;
+  this.max = aMax || 1000; // XXX
+}
+ChatRoomField.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomField,
+                                         Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIChatRoomField];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  contractID: null,
+  classDescription: "ChatRoomField object",
+  classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0
+};
+
+function ChatRoomFieldValues(aValue) {
+  this._hash = {};
+}
+ChatRoomFieldValues.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomFieldValues,
+                                         Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports,
+                      Ci.purpleIChatRoomFieldValues];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  contractID: null,
+  classDescription: "ChatRoomFieldValues object",
+  classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0,
+
+  getValue: function(aIdentifier) {
+    if (this._hash.hasOwnProperty(aIdentifier))
+        return this._hash[aIdentifier];
+    return null;
+  },
+  setValue: function(aIdentifier, aValue) {
+    this._hash[aIdentifier] = aValue;
+  }
+};
+
 function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
   this.label = aLabel;
   this.separator = aSeparator;
@@ -559,7 +615,7 @@ UsernameSplit.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
                                          Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports,Ci.purpleIUsernameSplit];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIUsernameSplit];
     countRef.value = interfaces.length;
     return interfaces;
   },
