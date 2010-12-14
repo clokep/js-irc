@@ -82,10 +82,14 @@ function Chat(aAccount, aName) {
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG", [aMessage], this._nickname);
-    this.writeMessage(this.account._nickname,
-                      aMessage,
-                      {outgoing: true});
+    // Only send message if we're in the room
+    // XXX is this the expected behavior?
+    if (this._hasParticipant(this.account._nickname)) {
+      this.account._sendMessage("PRIVMSG", [aMessage], this.name);
+      this.writeMessage(this.account._nickname,
+                        aMessage,
+                        {outgoing: true});
+    }
   },
 
   close: function() {
@@ -388,12 +392,12 @@ Account.prototype = {
       case "KICK":
         // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
         // XXX look over this
-        var usersNames = params[1].split(",");
-        for (let channelName in message.params[0].split(",")) {
+        var usersNames = message.params[1].split(",");
+        for each (let channelName in message.params[0].split(",")) {
           let conversation = this._getConversation(channelName);
-          for (let username in usersNames) {
+          for each (let username in usersNames) {
             let kickMessage = username + " has been kicked";
-            if (aMessage.params.length == 3)
+            if (message.params.length == 3)
               kickMessage += " [<i>" + message.params[2] + "</i>]";
             kickMessage += ".";
             conversation.writeMessage(message.nickname,
@@ -1144,7 +1148,7 @@ Account.prototype.__proto__ = GenericAccountPrototype;
 
 function Protocol() { }
 Protocol.prototype = {
-  get name() "IRC-JS",
+  get name() "I R C",
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
 
