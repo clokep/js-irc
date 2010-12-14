@@ -1156,17 +1156,21 @@ Protocol.prototype = {
   },
 
   getOptions: function() {
-    // XXX figure out how to access the constants for these
     // XXX need to refer to these in the above code
-    let prefs = [new purplePref("port", "Port", 2, false, 6667),
-                 new purplePref("encoding", "Encodings", 3, false, "UTF-8"),
+    let prefs = [new purplePref("port", "Port", Ci.purpleIPref.typeInt,
+                                false, 6667),
+                 new purplePref("encoding", "Encodings",
+                                Ci.purpleIPref.typeString, false, "UTF-8"),
                  new purplePref("autodetect_utf8",
                                 "Auto-detect incoming UTF-8",
-                                1),
-                 new purplePref("username", "Username", 3),
-                 new purplePref("realname", "Real name", 3),
-                 //new purplePref("quitmsg", "Quit message", 3),
-                 new purplePref("ssl", "Use SSL", 1)];
+                                Ci.purpleIPref.typeBool),
+                 new purplePref("username", "Username",
+                                Ci.purpleIPref.typeString),
+                 new purplePref("realname", "Real name",
+                                Ci.purpleIPref.typeString),
+                 //new purplePref("quitmsg", "Quit message",
+                 //               Ci.purpleIPref.typeString),
+                 new purplePref("ssl", "Use SSL", Ci.purpleIPref.typeBool)];
     return new nsSimpleEnumerator(prefs);
   },
 
