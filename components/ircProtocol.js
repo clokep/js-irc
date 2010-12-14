@@ -200,6 +200,8 @@ Account.prototype = {
   _pump: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
+  canJoinChat: true,
+
   proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
 
   // Data listener object
@@ -255,8 +257,14 @@ Account.prototype = {
 
   // When the user clicks "Disconnect" in account manager
   disconnect: function() {
-    this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
-    this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
+    if (this.connected) {
+      // Let the server know we're going to disconnect
+      this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
+      this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
+    } else {
+      // We're not connected, just disconnect
+      this._disconnect();
+    }
   },
 
   /*
@@ -1093,7 +1101,7 @@ Account.prototype = {
 
   _disconnect: function() {
     // force QUIT and close the sockets
-    this.base.disconnecting(this._base.NO_ERROR,"Closing sockets.");
+    this.base.disconnecting(this._base.NO_ERROR, "Closing sockets.");
     this._outputStream.close();
     this._inputStream.close();
     this._socketTransport.close(Components.results.NS_OK);
@@ -1113,7 +1121,7 @@ UsernameSplit.prototype.__proto__ = GenericUsernameSplitPrototype;
 
 function Protocol() { }
 Protocol.prototype = {
-  get name() "IRC-JS",
+  get name() "IRC",
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
 
