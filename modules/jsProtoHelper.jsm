@@ -410,12 +410,6 @@ const GenericConversationPrototype = {
     obs.notifyObservers(this, "new-conversation", null);
   },
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.nsIClassInfo]),
-  getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
   getHelperForLanguage: function(language) null,
   contractID: null,
   classDescription: "Conversation object",
@@ -453,12 +447,12 @@ const GenericConversationPrototype = {
   get name() this._name,
   get normalizedName() this.name.toLowerCase(),
   get title() this.name,
-  isChat: false,
   account: null
 };
 
 const GenericConvIMPrototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvIM, Ci.nsIClassInfo]),
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation,
+                                         Ci.purpleIConvIM, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
     var interfaces = [
       Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvIM
@@ -492,16 +486,12 @@ const GenericConvChatPrototype = {
   _topicSetter: null,
 
   _init: function(aAccount, aName) {
-    this.account = aAccount;
-    this._name = aName;
-    this.id = ++GenericConversationPrototype._lastId;
-
-    this._observers = [];
     this._participants = {};
-    obs.notifyObservers(this, "new-conversation", null);
+    GenericConversationPrototype._init(aAccount, aName);
   },
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation, Ci.purpleIConvChat, Ci.nsIClassInfo]),
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation,
+                                         Ci.purpleIConvChat, Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
     var interfaces = [
       Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConversation, Ci.purpleIConvChat
