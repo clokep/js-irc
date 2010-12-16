@@ -487,7 +487,14 @@ const GenericConvChatPrototype = {
 
   _init: function(aAccount, aName) {
     this._participants = {};
-    GenericConversationPrototype._init(aAccount, aName);
+    //GenericConversationPrototype._init(aAccount, aName);
+
+    this.account = aAccount;
+    this._name = aName;
+    this.id = ++GenericConversationPrototype._lastId;
+
+    this._observers = [];
+    obs.notifyObservers(this, "new-conversation", null);
   },
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation,
@@ -528,7 +535,7 @@ const GenericConvChatBuddyPrototype = {
   flags: 0,
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
 
-  _name: "ConvChatBuddy",
+  _name: "",
   alias: "",
 
   get name() this._name,

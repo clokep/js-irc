@@ -391,7 +391,6 @@ Account.prototype = {
         break;
       case "KICK":
         // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
-        // XXX look over this
         var usersNames = message.params[1].split(",");
         for each (let channelName in message.params[0].split(",")) {
           let conversation = this._getConversation(channelName);
