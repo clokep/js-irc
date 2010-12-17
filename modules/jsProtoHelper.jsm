@@ -49,7 +49,6 @@ var EXPORTED_SYMBOLS = [
   "ChatRoomField",
   "ChatRoomFieldValues",
   "UsernameSplit",
-  "purplePref",
   "purpleProxyInfo",
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
@@ -619,14 +618,12 @@ UsernameSplit.prototype = {
   flags: 0
 };
 
-function purplePref(name, label, type, masked, defaultValue) {
+function purplePref(name, label, type, defaultValue, masked) {
   this.name = name; // Preference name
   this.label = label; // Text to display
   this.type = type;
+  this._defaultValue = defaultValue;
   this.masked = masked; // Obscured from view
-
-  if (defaultValue)
-    this._defaultValue = defaultValue;
 }
 purplePref.prototype = {
   get typeBool() 1,
@@ -635,9 +632,9 @@ purplePref.prototype = {
   get typeList() 4,
 
   // Default value
-  getBool: function() this._defaultValue || false,
-  getInt: function() this._defaultValue || 0,
-  getString: function() this._defaultValue || "",
+  getBool: function() this._defaultValue,
+  getInt: function() this._defaultValue,
+  getString: function() this._defaultValue,
   getList: function() (purpleKeyValuePairs(this._defaultValue)) ||
                       (new EmptyEnumerator()),
 
@@ -716,7 +713,35 @@ const GenericProtocolPrototype = {
   getAccount: function(aKey, aName) { throw Cr.NS_ERROR_NOT_IMPLEMENTED; },
 
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
-  getOptions: function() EmptyEnumerator,
+  getOptions: function() {
+    if (!this.options)
+      return EmptyEnumerator;
+
+    let purplePrefs = [];
+    for each (let option in this.options) {
+      let type;
+      switch (typeof option.default) {
+        case "boolean":
+          type = Ci.purpleIPref.typeBool;
+          break;
+        case "string":
+          type = Ci.purpleIPref.typeString;
+          break;
+        case "number":
+          type = Ci.purpleIPref.typeInt;
+          break;
+        default:
+          type = Ci.purpleIPref.typeList;
+          break;
+      }
+      purplePrefs.push(new purplePref(option.name,
+                                      option.label,
+                                      type,
+                                      option.default,
+                                      option.masked || false));
+    }
+    return new nsSimpleEnumerator(purplePrefs);
+  },
   getUsernameSplit: function() EmptyEnumerator,
   get usernameEmptyText() "",
   accountExists: function() false, //FIXME

@@ -979,7 +979,7 @@ ircParser = {
         message.params.join(" "),
         {error: true}
       );
-      this.disconnect();
+      this.disconnect(); // XXX should show error in account manager
     },
     "466": function(message) { // ERR_YOUWILLBEBANNED
       // :You are banned from this server
@@ -988,7 +988,7 @@ ircParser = {
         message.params.join(" "),
         {error: true}
       );
-      this.disconnect();
+      this.disconnect(); // XXX should show error in account manager
     },
     "467": function(message) { // ERR_KEYSET
       // <channel> :Channel key already set

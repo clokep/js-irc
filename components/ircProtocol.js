@@ -435,24 +435,16 @@ Protocol.prototype = {
                                                      true)]);
   },
 
-  getOptions: function() {
-    // XXX need to refer to these in the above code
-    let prefs = [new purplePref("port", "Port", Ci.purpleIPref.typeInt,
-                                false, 6667),
-                 new purplePref("encoding", "Encodings",
-                                Ci.purpleIPref.typeString, false, "UTF-8"),
-                 new purplePref("autodetect_utf8",
-                                "Auto-detect incoming UTF-8",
-                                Ci.purpleIPref.typeBool),
-                 new purplePref("username", "Username",
-                                Ci.purpleIPref.typeString),
-                 new purplePref("realname", "Real name",
-                                Ci.purpleIPref.typeString),
-                 //new purplePref("quitmsg", "Quit message",
-                 //               Ci.purpleIPref.typeString),
-                 new purplePref("ssl", "Use SSL", Ci.purpleIPref.typeBool)];
-    return new nsSimpleEnumerator(prefs);
-  },
+  // XXX need to refer to these in the above code
+  options: [
+    {name: "port", label: "Port", default: 6667},
+    {name: "encoding", label: "Encodings", default: "UTF-8"},
+    {name: "autodetect_utf8", label: "Auto-detect incoming UTF-8", default: false},
+    {name: "username", label: "Username", default: ""},
+    {name: "realname", label: "Real name", default: ""},
+    //{name: "quitmsg", label: "Quit message", default: ""},
+    {name: "ssl", label: "Use SSL", default: false}
+  ],
 
   get chatHasTopic() true,
 
