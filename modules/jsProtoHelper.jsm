@@ -517,7 +517,7 @@ GenericConvChatPrototype.__proto__ = GenericConversationPrototype;
 
 const GenericConvChatBuddyPrototype = {
   get classDescription() "ConvChatBuddy object",
-  get contractID() "@instantbird.org/purple/" + this.normalizedName + ";1",
+  get contractID() null,
   getInterfaces: function(countRef) {
     var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIConvChatBuddy];
     countRef.value = interfaces.length;
@@ -526,12 +526,14 @@ const GenericConvChatBuddyPrototype = {
   getHelperForLanguage: function(language) null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy, Ci.nsIClassInfo]),
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConvChatBuddy,
+                                         Ci.nsIClassInfo]),
 
   _name: "",
-  alias: "",
-
   get name() this._name,
+  alias: "",
+  buddy: false,
+
   get noFlags() !(this.voiced || this.halfOp || this.op ||
                   this.founder || this.typing),
   voiced: false,
