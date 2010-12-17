@@ -487,14 +487,7 @@ const GenericConvChatPrototype = {
 
   _init: function(aAccount, aName) {
     this._participants = {};
-    //GenericConversationPrototype._init(aAccount, aName);
-
-    this.account = aAccount;
-    this._name = aName;
-    this.id = ++GenericConversationPrototype._lastId;
-
-    this._observers = [];
-    obs.notifyObservers(this, "new-conversation", null);
+    GenericConversationPrototype._init.apply(this, arguments);
   },
 
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIConversation,

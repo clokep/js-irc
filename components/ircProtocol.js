@@ -363,8 +363,8 @@ Account.prototype = {
         // Client connection has been terminated
         for each (let conversation in this._conversations) {
           conversation.writeMessage(message.source,
-                                      "Your account has been disconnected.",
-                                      {system: true});
+                                    "Your account has been disconnected.",
+                                    {system: true});
         }
         // Notify account manager
         this._disconnect();
@@ -539,45 +539,37 @@ Account.prototype = {
         break;
       case "200": // RPL_TRACELINK
         // Link <version & debug level> <destination> <next server> V<protocol version> <link updateime in seconds> <backstream sendq> <upstream sendq>
-        // XXX
       case "201": // RPL_TRACECONNECTING
         // Try. <class> <server>
-        // XXX
       case "202": // RPL_TRACEHANDSHAKE
         // H.S. <class> <server>
-        // XXX
       case "203": // RPL_TRACEUNKNOWN
         // ???? <class> [<client IP address in dot form>]
-        // XXX
       case "204": // RPL_TRACEOPERATOR
         // Oper <class> <nick>
-        // XXX
       case "205": // RPL_TRACEUSER
         // User <class> <nick>
-        // XXX
       case "206": // RPL_TRACESERVER
         // Serv <class> <int>S <int>C <server> <nick!user|*!*>@<host|server> V<protocol version>
-        // XXX
       case "207": // RPL_TRACESERVICE
         // Service <class> <name> <type> <active type>
-        // XXX
       case "208": // RPL_TRACENEWTYPE
         // <newtype> 0 <client name>
-        // XXX
       case "209": // RPL_TRACECLASS
         // Class <class> <count>
-        // XXX
-        break;
       case "210": // RPL_TRACERECONNECTION
         // Unused.
+        // Handle response to TRACE message
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
         break;
       case "211": // RPL_STATSLINKINFO
         // <linkname> <sendq> <sent messages> <sent Kbytes> <received messages> <received Kbytes> <time open>
-        // XXX
       case "212": // RPL_STATSCOMMAND
         // <command> <count> <byte count> <remote count>
-        // XXX
-        break;
       case "213": // RPL_STATSCLINE
       case "214": // RPL_STATSNLINE
       case "215": // RPL_STATSILINE
@@ -585,10 +577,13 @@ Account.prototype = {
       case "217": // RPL_STATSQLINE
       case "218": // RPL_STATSYLINE
         // Non-generic
-        break;
       case "219": // RPL_ENDOFSTATS
         // <stats letter> :End of STATS report
-        // XXX
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
         break;
       case "221": // RPL_UMODEIS
         // <user mode string>
@@ -601,46 +596,61 @@ Account.prototype = {
         break;
       case "234": // RPL_SERVLIST
         // <name> <server> <mask> <type> <hopcount> <info>
-        // XXX
+        // Display the services
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
+        break;
       case "235": // RPL_SERVLISTEND
         // <mask> <type> :End of service listing
-        // XXX
+        // Display the services
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          params.slice(1, -1).join(" "),
+          {system: true}
+        );
         break;
       case "240": // RPL_STATSVLINE
       case "241": // RPL_STATSLLINE
         // Non-generic
-        break;
       case "242": // RPL_STATSUPTIME
         // :Server Up %d days %d:%02d:%02d
-        // XXX Do we care?
       case "243": // RPL_STATSOLINE
         // O <hostmask> * <name>
-        // XXX display?
-        break;
       case "244": // RPL_STATSHLINE
       case "245": // RPL_STATSSLINE
         // Non-generic
-        break;
       case "246": // RPL_STATSPING
       case "247": // RPL_STATSBLINE
       case "250": // RPL_STATSDLINE
         // Non-generic
+        // Handle response to stats messages
+        // XXX some of these have real information?
+        this._getConversation(message.source).writeMessage(
+          this.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
         break;
       case "251": // RPL_LUSERCLIENT
         // :There are <integer> users and <integer> services on <integer> servers
-        // XXX parse this and display in the UI?
       case "252": // RPL_LUSEROP, 0 if not sent
         // <integer> :operator(s) online
-        // XXX parse this and display in the UI?
       case "253": // RPL_LUSERUNKNOWN, 0 if not sent
         // <integer> :unknown connection(s)
-        // XXX parse this and display in the UI?
       case "254": // RPL_LUSERCHANNELS, 0 if not sent
         // <integer> :channels formed
-        // XXX parse this and display in the UI?
       case "255": // RPL_LUSERME
         // :I have <integer> clients and <integer> servers
-        // XXX parse this and display in the UI?
+        // Handle LUSERS reply
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
+        break;
       case "256": // RPL_ADMINME
         // <server> :Administrative info
       case "257": // RPL_ADMINLOC1
@@ -651,18 +661,30 @@ Account.prototype = {
         // Institution details
       case "259": // RPL_ADMINEMAIL
         // :<admin info>
-        // XXX parse this for a contact email
+        // XXX parse this for a contact email?
         this._getConversation(message.source).writeMessage(
           message.source,
-          message.params.slice(1).join(" "), // skip nickname
+          message.params.slice(1).join(" "),
           {system: true}
         );
         break;
       case "261": // RPL_TRACELOG
         // File <logfile> <debug level>
-        // XXX
+        // Handle response to TRACE message
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.slice(1).join(" "),
+          {system: true}
+        );
+        break;
       case "262": // RPL_TRACEEND
-        // <server name> <version & debug level> :End of TRACE"
+        // <server name> <version & debug level> :End of TRACE
+        // Handle response to TRACE message
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          params.slice(1, -1).join(" "),
+          {system: true}
+        );
         break;
       case "263": // RPL_TRYAGAIN
         // <command> :Please wait a while and try again.
@@ -674,7 +696,7 @@ Account.prototype = {
         // :Current Global Users: <integer>  Max: <integer>
         this._getConversation(message.source).writeMessage(
           message.source,
-          message.params[1], // skip nickname
+          message.params.join(" "),
           {system: true}
         );
       case "300": // RPL_NONE
@@ -682,16 +704,17 @@ Account.prototype = {
         break;
       case "301": // RPL_AWAY
         // <nick> :<away message>
-        var conversation = this._getConversation(message.params[0]);
-        conversation.writeMessage(message.params[0],
-                                   message.params[1],
-                                   {autoResponse: true});
+        this._getConversation(message.params[0]).writeMessage(
+          message.params[0],
+          message.params[1],
+          {autoResponse: true}
+        );
         // XXX set user as away on buddy list / conversation lists
         break;
       case "302": // RPL_USERHOST
         // :*1<reply> *( " " <reply )"
         // reply = nickname [ "*" ] "=" ( "+" / "-" ) hostname
-        // XXX What do we do?
+        // XXX Can tell op / away from this
       case "303": // RPL_ISON
         // :*1<nick> *( " " <nick> )"
         // XXX Need to update the buddy list once that's implemented
@@ -736,6 +759,11 @@ Account.prototype = {
       case "322": // RPL_LIST
         // <channel> <# visible> :<topic>
         // XXX parse this for # users & topic
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.join(" "),
+          {system: true}
+        );
         break;
       case "323": // RPL_LISTEND
         // :End of LIST
@@ -762,14 +790,22 @@ Account.prototype = {
                              message.params[2];
         conversation.writeMessage(null, topicMessage, {system: true});
         break;
-      // case "333": // XXX nonstandard
+      case "333": // XXX nonstandard
       case "341": // RPL_INVITING
         // <channel> <nick>
         // XXX invite successfully sent? Display this?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1] + " was successfully invited to " +
+            message.params[0] + "."
+        );
         break;
       case "342": // RPL_SUMMONING
         // <user> :Summoning user to IRC
-        // XXX is this server only?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[0] + " was summoned."
+        );
         break;
       case "346": // RPL_INVITELIST
         // <chanel> <invitemask>
@@ -786,14 +822,18 @@ Account.prototype = {
         break;
       case "351": // RPL_VERSION
         // <version>.<debuglevel> <server> :<comments>
-        // XXX Do we care?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.join(" "),
+          {system: true}
+        );
         break;
       case "352": // RPL_WHOREPLY
         // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ("@" / "+" ) ] :<hopcount> <real name>
         // XXX
         break;
       case "353": // RPL_NAMREPLY
-        // ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
+        // <target> ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
         // XXX Keep if this is secret (@), private (*) or public (=)
         var conversation = this._getConversation(message.params[2]);
         message.params[3].trim().split(" ").forEach(function(nickname) {
@@ -801,10 +841,6 @@ Account.prototype = {
           //if (!this._buddies[nickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
           //  this._buddies[nickname] = {}; // XXX new Buddy()?
         }, this);
-
-        // Notify of only the ADDED participants
-        conversation.notifyObservers(conversation.getParticipants(),
-                                     "chat-buddy-add");
         break;
       case "361": // RPL_KILLDONE
       case "362": // RPL_CLOSING
@@ -819,8 +855,11 @@ Account.prototype = {
         // XXX
         break;
       case "366": // RPL_ENDOFNAMES
-        // <channel> :End of NAMES list
-        // XXX use with 353 RPL_NAMREPLY
+        // <target> <channel> :End of NAMES list
+        // Notify of only the ADDED participants
+        var conversation = this._getConversation(message.params[1]);
+        conversation.notifyObservers(conversation.getParticipants(),
+                                     "chat-buddy-add");
         break;
       case "367": // RPL_BANLIST
         // <channel> <banmask>
@@ -836,8 +875,7 @@ Account.prototype = {
         // :<string>
         this._getConversation(message.source).writeMessage(
           message.source,
-          message.params[1],
-          {system: true}
+          message.params[1]
         );
         break;
       case "372": // RPL_MOTD
@@ -903,7 +941,7 @@ Account.prototype = {
         // XXX store into buddy list
       case "394": // RPL_ENDOFUSERS
         // :End of users
-        // XXX
+        // XXX Notify observers of the buddy list
         break;
       case "395": // RPL_NOUSERS
         // :Nobody logged in
@@ -912,19 +950,27 @@ Account.prototype = {
       // Error messages, Implement Section 5.2 of RFC 2812
       case "401": // ERR_NOSUCHNICK
         // <nickname> :No such nick/channel
-        // XXX Error saying the nick doesn't exist?
       case "402": // ERR_NOSUCHSERVER
         // <server name> :No such server
-        // XXX Error saying the server doesn't exist?
       case "403": // ERR_NOSUCHCHANNEL
         // <channel name> :No such channel
-        // XXX Error saying channel doesn't exist?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1] + ": " + message.params[0],
+          {error: true}
+        );
+        break;
       case "404": // ERR_CANNONTSENDTOCHAN
         // <channel name> :Cannot send to channel
         // XXX handle that the channel didn't receive the message
       case "405": // ERR_TOOMANYCHANNELS
         // <channel name> :You have joined too many channels
-        // XXX Error saying too many channels?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params[1] + ": " + message.params[0],
+          {error: true}
+        );
+        break;
       case "406": // ERR_WASNOSUCHNICK
         // <nickname> :There was no such nickname
         // XXX Error saying the nick never existed
@@ -970,17 +1016,20 @@ Account.prototype = {
         // XXX Prompt user for new nick? Autoclean characters?
       case "433": // ERR_NICKNAMEINUSE
         // <nick> :Nickname is already in use
-        // XXX add 1 or increment last digit of nickname
-        break;
       case "436": // ERR_NICKCOLLISION
         // <nick> :Nickname collision KILL from <user>@<host>
         // Take the returned nick and increment the last character
-        this._nickname = message.params[0].slice(0, -1) +
+        this._nickname = message.params[1].slice(0, -1) +
           String.fromCharCode(
-            message.params[0].charCodeAt(message.params[0].length - 1) + 1
+            message.params[1].charCodeAt(message.params[1].length - 1) + 1
           );
         this._sendMessage("NICK", [this._nickname]); // Nick message
         // XXX inform user?
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          "Changing nick to " + this._nickname + " [<i>" + message.params[2] +
+            "</i>]."
+        );
         break;
       case "437": // ERR_UNAVAILRESOURCE
         // <nick/channel> :Nick/channel is temporarily unavailable
@@ -1012,15 +1061,21 @@ Account.prototype = {
         // XXX prompt user for new password
       case "465": // ERR_YOUREBANEDCREEP
         // :You are banned from this server
-        // XXX Disconnect account?
         this._getConversation(message.source).writeMessage(
           message.source,
-          message.rawMessage,
+          message.params.join(" "),
           {error: true}
         );
+        this.disconnect();
         break;
       case "466": // ERR_YOUWILLBEBANNED
-        // XXX we should disconnect here
+        // :You are banned from this server
+        this._getConversation(message.source).writeMessage(
+          message.source,
+          message.params.join(" "),
+          {error: true}
+        );
+        this.disconnect();
       case "467": // ERR_KEYSET
         // <channel> :Channel key already set
       case "471": // ERR_CHANNELISFULL
@@ -1067,7 +1122,7 @@ Account.prototype = {
         // :Cannot change mode for other users
         this._getConversation(message.source).writeMessage(
           message.source,
-          message.rawMessage,
+          message.params.join(" "),
           {error: true}
         );
         break;
