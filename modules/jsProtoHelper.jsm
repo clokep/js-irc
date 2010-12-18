@@ -132,9 +132,9 @@ const GenericAccountPrototype = {
     this._base.concreteAccount = this;
     this._base.init(aKey, aName, aProtoInstance);
 
-    this._prefs = Cc["@mozilla.org/preferences-service;1"]
-                    .getService(Ci.nsIPrefService)
-                    .getBranch("messenger.account." + this.id + ".options.");
+
+    this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
+                                             ".options.");
 
     Services.obs.addObserver(this, "status-changed", false);
   },
@@ -179,9 +179,21 @@ const GenericAccountPrototype = {
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
   setInt: function(aName, aVal) this._base.setInt(aName, aVal),
   setString: function(aName, aVal) this._base.setString(aName, aVal),
-  getInt: function(aName) this._prefs.getIntPref(aName), // XXX these will crash if they don't exist
-  getString: function(aName) this._prefs.getCharPref(aName),
-  getBool: function(aName) this._prefs.getBoolPref(aName),
+  getInt: function(aName, aDefaultValue) {
+    if (this._prefs.prefHasUserValue(aName))
+      return this._prefs.getIntPref(aName);
+    return aDefaultValue || null;
+  },
+  getString: function(aName, aDefaultValue) {
+    if (this._prefs.prefHasUserValue(aName))
+      return this._prefs.getCharPref(aName);
+    return aDefaultValue || null;
+  },
+  getBool: function(aName, aDefaultValue) {
+    if (this._prefs.prefHasUserValue(aName))
+      return this._prefs.getBoolPref(aName);
+    return aDefaultValue || null;
+  },
   save: function() this._base.save(),
 
   // grep attribute purpleIAccount.idl |sed 's/.* //;s/;//;s/\(.*\)/  get \1() this._base.\1,/'

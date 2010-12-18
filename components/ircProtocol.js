@@ -194,16 +194,17 @@ function Account(aProtoInstance, aKey, aName) {
   this._server = matches[1];
 
   // XXX load port, realname, etc. from preferences
-  //dump(this.getInt("port"));
-  // this._port = this.getInt("port");
+  dump(this.getInt("port"));
+  dump(this.getInt("port", 6667));
+  //this._port = this.getInt("port");
   this._port = 6667;
-  // this._realname = this.getString("realname");
+  //this._realname = this.getString("realname");
   this._realname = "clokep";
   this._username = null;
   this._ssl = false;
 
-  this._port = 6697;
-  this._ssl = true;
+  //this._port = 6697;
+  //this._ssl = true;
 }
 Account.prototype = {
   _socketTransport: null,
