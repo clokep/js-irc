@@ -201,6 +201,9 @@ function Account(aProtoInstance, aKey, aName) {
   this._realname = "clokep";
   this._username = null;
   this._ssl = false;
+
+  this._port = 6697;
+  this._ssl = true;
 }
 Account.prototype = {
   _socketTransport: null,
@@ -244,7 +247,7 @@ Account.prototype = {
 
     var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
                      .getService(Ci.nsISocketTransportService);
-    this._socketTransport = socketTS.createTransport(this._ssl ? "ssl" : null, // Socket type
+    this._socketTransport = socketTS.createTransport(this._ssl ? ["ssl"] : null, // Socket type
                                                      this._ssl? 1 : 0, // Length of socket types
                                                      this._server, // Host
                                                      this._port, // Port
@@ -285,6 +288,10 @@ Account.prototype = {
       // We're not connected, just disconnect
       this._disconnect();
     }
+  },
+
+  createConversation: function(aName) {
+    return this._getConversation(aName);
   },
 
   /*
