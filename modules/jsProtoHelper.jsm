@@ -62,20 +62,21 @@ var EXPORTED_SYMBOLS = [
 */
 
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+Components.utils.import("resource:///modules/imServices.jsm");
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cr = Components.results;
 
-XPCOMUtils.defineLazyServiceGetter(this, "obs",
+/*XPCOMUtils.defineLazyServiceGetter(this, "obs",
                                    "@mozilla.org/observer-service;1",
                                    "nsIObserverService");
 XPCOMUtils.defineLazyServiceGetter(this, "cs",
                                    "@mozilla.org/consoleservice;1",
-                                   "nsIConsoleService");
+                                   "nsIConsoleService");*/
 function LOG(aString)
 {
-  cs.logStringMessage(aString);
+  Services.console.logStringMessage(aString);
 }
 
 function setTimeout(aFunction, aDelay)
@@ -134,8 +135,26 @@ const GenericAccountPrototype = {
     this._prefs = Cc["@mozilla.org/preferences-service;1"]
                     .getService(Ci.nsIPrefService)
                     .getBranch("messenger.account." + this.id + ".options.");
+
+    Services.obs.addObserver(this, "status-changed", false);
   },
   get base() this._base.purpleIAccountBase,
+
+  /*
+   * aSubject is purpleICoreService
+   * aTopic is "status-changed"
+   * aData is <status text>
+   */
+  observe: function(aSubject, aTopic, aMsg) {
+    let statusType = aSubject.currentStatusType;
+    if (statusType == Ci.purpleICoreService.STATUS_OFFLINE)
+      this.disconnect();
+    else
+      this.statusChanged(statusType, aMsg);
+  },
+  statusChanged: function(aStatusType, aMsg) {
+    throw Components.results.NS_ERROR_NOT_IMPLEMENTED;
+  },
 
   checkAutoLogin: function() this._base.checkAutoLogin(),
   remove: function() this._base.remove(),
@@ -380,7 +399,7 @@ Message.prototype = {
   set conversation(aConv) {
     this._conversation = aConv;
     aConv.notifyObservers(this, "new-text", null);
-    obs.notifyObservers(this, "new-text", null);
+    Services.obs.notifyObservers(this, "new-text", null);
   },
 
   outgoing: false,
@@ -406,7 +425,7 @@ const GenericConversationPrototype = {
     this.id = ++GenericConversationPrototype._lastId;
 
     this._observers = [];
-    obs.notifyObservers(this, "new-conversation", null);
+    Services.obs.notifyObservers(this, "new-conversation", null);
   },
 
   getHelperForLanguage: function(language) null,
@@ -652,11 +671,11 @@ purplePref.prototype = {
 
 // Convert a JavaScript object mapping {"name1": "value1", "name2": "value2"}
 function purpleKeyValuePairs(obj) {
+  LOG(Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key])));
   return new nsSimpleEnumerator(
     Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key]))
   );
 }
-
 function purpleKeyValuePair(name, value) {
   this.name = name;
   this.value = value;

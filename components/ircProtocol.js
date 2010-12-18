@@ -230,6 +230,15 @@ Account.prototype = {
       this._handleMessage(message);
   },
 
+  statusChanged: function(aStatusType, aMsg) {
+    dump(aStatusType + "\r\n<" + aMsg + ">");
+    if (aStatusType == Ci.purpleICoreService.STATUS_OFFLINE ||
+        aStatusType == Ci.purpleICoreService.STATUS_UNAVAILABLE)
+      this._sendMessage("AWAY", [aMsg || "I am away from my computer."]);
+    else if (aStatusType == Ci.purpleICoreService.STATUS_AVAILABLE)
+      this._sendMessage("AWAY");
+  },
+
   connect: function() {
     this.base.connecting();
 
@@ -443,7 +452,8 @@ Protocol.prototype = {
     {name: "username", label: "Username", default: ""},
     {name: "realname", label: "Real name", default: ""},
     //{name: "quitmsg", label: "Quit message", default: ""},
-    {name: "ssl", label: "Use SSL", default: false}
+    {name: "ssl", label: "Use SSL", default: false},
+    {name: "test", label: "Test", default: {"item one": "item 2", "ok": "OKKK"}}
   ],
 
   get chatHasTopic() true,
