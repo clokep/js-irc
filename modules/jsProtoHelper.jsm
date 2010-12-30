@@ -132,7 +132,6 @@ const GenericAccountPrototype = {
     this._base.concreteAccount = this;
     this._base.init(aKey, aName, aProtoInstance);
 
-
     this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
                                              ".options.");
 
@@ -179,20 +178,20 @@ const GenericAccountPrototype = {
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
   setInt: function(aName, aVal) this._base.setInt(aName, aVal),
   setString: function(aName, aVal) this._base.setString(aName, aVal),
-  getInt: function(aName, aDefaultValue) {
+  getInt: function(aName) {
     if (this._prefs.prefHasUserValue(aName))
       return this._prefs.getIntPref(aName);
-    return aDefaultValue || null;
+    return this.protocol._getOptionDefault(aName);
   },
-  getString: function(aName, aDefaultValue) {
+  getString: function(aName) {
     if (this._prefs.prefHasUserValue(aName))
       return this._prefs.getCharPref(aName);
-    return aDefaultValue || null;
+    return this.protocol._getOptionDefault(aName);
   },
-  getBool: function(aName, aDefaultValue) {
+  getBool: function(aName) {
     if (this._prefs.prefHasUserValue(aName))
       return this._prefs.getBoolPref(aName);
-    return aDefaultValue || null;
+    return this.protocol._getOptionDefault(aName);
   },
   save: function() this._base.save(),
 
@@ -666,8 +665,8 @@ purplePref.prototype = {
   getBool: function() this._defaultValue,
   getInt: function() this._defaultValue,
   getString: function() this._defaultValue,
-  getList: function() (purpleKeyValuePairs(this._defaultValue)) ||
-                      (new EmptyEnumerator()),
+  getList: function() purpleKeyValuePairs(this._defaultValue) ||
+                      EmptyEnumerator,
 
   get classDescription() "Preference for Account Options",
   getInterfaces: function(countRef) {
@@ -683,7 +682,6 @@ purplePref.prototype = {
 
 // Convert a JavaScript object mapping {"name1": "value1", "name2": "value2"}
 function purpleKeyValuePairs(obj) {
-  LOG(Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key])));
   return new nsSimpleEnumerator(
     Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key]))
   );
@@ -744,12 +742,19 @@ const GenericProtocolPrototype = {
   getAccount: function(aKey, aName) { throw Cr.NS_ERROR_NOT_IMPLEMENTED; },
 
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
+  _getOptionDefault: function(aName) {
+    if (this.options && this.options.hasOwnProperty[aName])
+      return this.options[aName].default;
+    // XXX throw an exception?
+    return null;
+  },
   getOptions: function() {
     if (!this.options)
       return EmptyEnumerator;
 
     let purplePrefs = [];
-    for each (let option in this.options) {
+    for (let optionName in this.options) {
+      let option = this.options[optionName];
       let type;
       switch (typeof option.default) {
         case "boolean":
@@ -765,7 +770,7 @@ const GenericProtocolPrototype = {
           type = Ci.purpleIPref.typeList;
           break;
       }
-      purplePrefs.push(new purplePref(option.name,
+      purplePrefs.push(new purplePref(optionName,
                                       option.label,
                                       type,
                                       option.default,

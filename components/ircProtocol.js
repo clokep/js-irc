@@ -194,8 +194,7 @@ function Account(aProtoInstance, aKey, aName) {
   this._server = matches[1];
 
   // XXX load port, realname, etc. from preferences
-  dump(this.getInt("port"));
-  dump(this.getInt("port", 6667));
+  dump("Port: " + this.getInt("port"));
   //this._port = this.getInt("port");
   this._port = 6667;
   //this._realname = this.getString("realname");
@@ -203,8 +202,8 @@ function Account(aProtoInstance, aKey, aName) {
   this._username = null;
   this._ssl = false;
 
-  //this._port = 6697;
-  //this._ssl = true;
+  this._port = 6697;
+  this._ssl = true;
 }
 Account.prototype = {
   _socketTransport: null,
@@ -249,7 +248,7 @@ Account.prototype = {
     var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
                      .getService(Ci.nsISocketTransportService);
     this._socketTransport = socketTS.createTransport(this._ssl ? ["ssl"] : null, // Socket type
-                                                     this._ssl? 1 : 0, // Length of socket types
+                                                     this._ssl ? 1 : 0, // Length of socket types
                                                      this._server, // Host
                                                      this._port, // Port
                                                      null); // XXX Proxy info
@@ -291,9 +290,7 @@ Account.prototype = {
     }
   },
 
-  createConversation: function(aName) {
-    return this._getConversation(aName);
-  },
+  createConversation: function(aName) this._getConversation(aName),
 
   /*
    * aComponents implements purpleIChatRoomFieldValues
@@ -453,16 +450,17 @@ Protocol.prototype = {
   },
 
   // XXX need to refer to these in the above code
-  options: [
-    {name: "port", label: "Port", default: 6667},
-    {name: "encoding", label: "Encodings", default: "UTF-8"},
-    {name: "autodetect_utf8", label: "Auto-detect incoming UTF-8", default: false},
-    {name: "username", label: "Username", default: ""},
-    {name: "realname", label: "Real name", default: ""},
-    //{name: "quitmsg", label: "Quit message", default: ""},
-    {name: "ssl", label: "Use SSL", default: false},
-    {name: "test", label: "Test", default: {"item one": "item 2", "ok": "OKKK"}}
-  ],
+  options: {
+    "port": {label: "Port", default: 6667},
+	"ssl": {label: "Use SSL", default: false},
+    "encoding": {label: "Encodings", default: "UTF-8"},
+    "autodetect_utf8": {label: "Auto-detect incoming UTF-8", default: false},
+    "username": {label: "Username", default: ""},
+    "realname": {label: "Real name", default: ""},
+    //"quitmsg": {label: "Quit message", default: ""},
+    //"test": {label: "Test", default: {"item one": "item 2", "ok": "OKKK"}}
+    "partmsg": {label: "Part message", default: ""}
+  },
 
   get chatHasTopic() true,
 
