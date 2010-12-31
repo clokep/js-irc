@@ -68,12 +68,6 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cr = Components.results;
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "obs",
-                                   "@mozilla.org/observer-service;1",
-                                   "nsIObserverService");
-XPCOMUtils.defineLazyServiceGetter(this, "cs",
-                                   "@mozilla.org/consoleservice;1",
-                                   "nsIConsoleService");*/
 function LOG(aString)
 {
   Services.console.logStringMessage(aString);
@@ -631,7 +625,7 @@ function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
   this.label = aLabel;
   this.separator = aSeparator;
   this.defaultValue = aDefaultValue;
-  this.reverse = aReverse || false;
+  this.reverse = !!aReverse; // Ensure boolean
 }
 UsernameSplit.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
@@ -654,14 +648,9 @@ function purplePref(name, label, type, defaultValue, masked) {
   this.label = label; // Text to display
   this.type = type;
   this._defaultValue = defaultValue;
-  this.masked = masked; // Obscured from view
+  this.masked = !!masked; // Obscured from view, ensure boolean
 }
 purplePref.prototype = {
-  get typeBool() 1,
-  get typeInt() 2,
-  get typeString() 3,
-  get typeList() 4,
-
   // Default value
   getBool: function() this._defaultValue,
   getInt: function() this._defaultValue,
@@ -753,29 +742,21 @@ const GenericProtocolPrototype = {
     if (!this.options)
       return EmptyEnumerator;
 
+    const types = {boolean: "Bool", string: "String", number: "Int", object: "List"};
     let purplePrefs = [];
     for (let optionName in this.options) {
       let option = this.options[optionName];
-      let type;
-      switch (typeof option.default) {
-        case "boolean":
-          type = Ci.purpleIPref.typeBool;
-          break;
-        case "string":
-          type = Ci.purpleIPref.typeString;
-          break;
-        case "number":
-          type = Ci.purpleIPref.typeInt;
-          break;
-        default:
-          type = Ci.purpleIPref.typeList;
-          break;
+      if (!((typeof option.default) in types)) {
+        throw "Invalid type for preference: " + optionName + ".";
+        continue;
       }
+      let type = Ci.purpleIPref["type" + types[typeof option.default]];
+
       purplePrefs.push(new purplePref(optionName,
                                       option.label,
                                       type,
                                       option.default,
-                                      option.masked || false));
+                                      option.masked));
     }
     return new nsSimpleEnumerator(purplePrefs);
   },
