@@ -744,19 +744,25 @@ const GenericProtocolPrototype = {
 
     const types = {boolean: "Bool", string: "String", number: "Int", object: "List"};
     let purplePrefs = [];
-    for (let optionName in this.options) {
-      let option = this.options[optionName];
-      if (!((typeof option.default) in types)) {
-        throw "Invalid type for preference: " + optionName + ".";
-        continue;
-      }
-      let type = Ci.purpleIPref["type" + types[typeof option.default]];
 
-      purplePrefs.push(new purplePref(optionName,
-                                      option.label,
-                                      type,
-                                      option.default,
-                                      option.masked));
+    return new nsSimpleEnumerator(
+      Object.keys(this._participants)
+            .map(function(key) {
+              let option = this.options[optionName];
+              if (!((typeof option.default) in types))
+                throw "Invalid type for preference: " + optionName + ".";
+
+              let type = Ci.purpleIPref["type" + types[typeof option.default]];
+              return new purplePref(optionName,
+                                    option.label,
+                                    type,
+                                    option.default,
+                                    option.masked);
+            }, this)
+    );
+
+    for (let optionName in this.options) {
+
     }
     return new nsSimpleEnumerator(purplePrefs);
   },
