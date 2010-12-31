@@ -130,6 +130,7 @@ const GenericAccountPrototype = {
   _init: function _init(aProtoInstance, aKey, aName) {
     this._base = new AccountBase();
     this._base.concreteAccount = this;
+    this._protocol = aProtoInstance;
     this._base.init(aKey, aName, aProtoInstance);
 
     this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
@@ -201,7 +202,7 @@ const GenericAccountPrototype = {
   get normalizedName() this.name.toLowerCase(),
   get id() this._base.id,
   get numericId() this._base.numericId,
-  get protocol() this._base.protocol,
+  get protocol() this._protocol,
   get autoLogin() this._base.autoLogin,
   get firstConnectionState() this._base.firstConnectionState,
   get password() this._base.password,
@@ -743,10 +744,10 @@ const GenericProtocolPrototype = {
 
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
   _getOptionDefault: function(aName) {
-    if (this.options && this.options.hasOwnProperty[aName])
+    if (this.options && this.options.hasOwnProperty(aName))
       return this.options[aName].default;
-    // XXX throw an exception?
-    return null;
+    throw "The preference " + aName +
+          " does not have a default value available in " + this.id + ".";
   },
   getOptions: function() {
     if (!this.options)

@@ -193,17 +193,11 @@ function Account(aProtoInstance, aKey, aName) {
   this._nickname = matches[0];
   this._server = matches[1];
 
-  // XXX load port, realname, etc. from preferences
-  dump("Port: " + this.getInt("port"));
-  //this._port = this.getInt("port");
-  this._port = 6667;
-  //this._realname = this.getString("realname");
-  this._realname = "clokep";
-  this._username = null;
-  this._ssl = false;
-
-  this._port = 6697;
-  this._ssl = true;
+  // Load preferences
+  this._port = this.getInt("port");
+  this._ssl = this.getBool("ssl");
+  this._username = this.getString("username");
+  this._realname = this.getString("realname");
 }
 Account.prototype = {
   _socketTransport: null,
@@ -419,9 +413,8 @@ Account.prototype = {
     if (this.password) // Password message, if provided
       this._sendMessage("PASS", [], this.password);
     this._sendMessage("NICK", [], this._nickname); // Nick message
-    this._sendMessage("USER", [this._username || this._nickname,
-                               this._mode, "*",
-                               this._realname]); // User message
+    this._sendMessage("USER", [this._username || this._nickname, this._mode,
+                               "*", this._realname || this._nickname]); // User message
   },
 
   _disconnect: function() {
@@ -449,17 +442,16 @@ Protocol.prototype = {
                                                      true)]);
   },
 
-  // XXX need to refer to these in the above code
   options: {
     "port": {label: "Port", default: 6667},
-	"ssl": {label: "Use SSL", default: false},
-    "encoding": {label: "Encodings", default: "UTF-8"},
-    "autodetect_utf8": {label: "Auto-detect incoming UTF-8", default: false},
+    "ssl": {label: "Use SSL", default: false},
+    "encoding": {label: "Encodings", default: "UTF-8"}, // XXX Unused
+    "autodetect_utf8": {label: "Auto-detect incoming UTF-8", default: false}, // XXX Unused
     "username": {label: "Username", default: ""},
     "realname": {label: "Real name", default: ""},
-    //"quitmsg": {label: "Quit message", default: ""},
+    //"quitmsg": {label: "Quit message", default: ""}, // XXX Unused
     //"test": {label: "Test", default: {"item one": "item 2", "ok": "OKKK"}}
-    "partmsg": {label: "Part message", default: ""}
+    "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
   get chatHasTopic() true,
