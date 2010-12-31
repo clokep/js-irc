@@ -127,9 +127,6 @@ const GenericAccountPrototype = {
     this._protocol = aProtoInstance;
     this._base.init(aKey, aName, aProtoInstance);
 
-    this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
-                                             ".options.");
-
     Services.obs.addObserver(this, "status-changed", false);
   },
   get base() this._base.purpleIAccountBase,
@@ -173,22 +170,18 @@ const GenericAccountPrototype = {
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
   setInt: function(aName, aVal) this._base.setInt(aName, aVal),
   setString: function(aName, aVal) this._base.setString(aName, aVal),
-  getInt: function(aName) {
-    if (this._prefs.prefHasUserValue(aName))
-      return this._prefs.getIntPref(aName);
-    return this.protocol._getOptionDefault(aName);
-  },
-  getString: function(aName) {
-    if (this._prefs.prefHasUserValue(aName))
-      return this._prefs.getCharPref(aName);
-    return this.protocol._getOptionDefault(aName);
-  },
-  getBool: function(aName) {
-    if (this._prefs.prefHasUserValue(aName))
-      return this._prefs.getBoolPref(aName);
-    return this.protocol._getOptionDefault(aName);
-  },
+  getPref: function (aName, aType)
+    this.prefs.prefHasUserValue(aName) ?
+    this.prefs["get" + aType + "Pref"](aName) :
+    this.protocol._getOptionDefault(aName),
+  getInt: function(aName) this.getPref(aName, "Int"),
+  getString: function(aName) this.getPref(aName, "Char"),
+  getBool: function(aName) this.getPref(aName, "Bool"),
   save: function() this._base.save(),
+
+  get prefs() this._prefs ||
+    (this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
+                                             ".options.")),
 
   // grep attribute purpleIAccount.idl |sed 's/.* //;s/;//;s/\(.*\)/  get \1() this._base.\1,/'
   get canJoinChat() this._base.canJoinChat,
@@ -643,20 +636,25 @@ UsernameSplit.prototype = {
   flags: 0
 };
 
-function purplePref(name, label, type, defaultValue, masked) {
-  this.name = name; // Preference name
-  this.label = label; // Text to display
-  this.type = type;
-  this._defaultValue = defaultValue;
-  this.masked = !!masked; // Obscured from view, ensure boolean
+function purplePref(aName, aLabel, aType, aDefaultValue, aMasked) {
+  this.name = aName; // Preference name
+  this.label = aLabel; // Text to display
+  this.type = aType;
+  this._defaultValue = aDefaultValue;
+  this.masked = !!aMasked; // Obscured from view, ensure boolean
 }
 purplePref.prototype = {
   // Default value
   getBool: function() this._defaultValue,
   getInt: function() this._defaultValue,
   getString: function() this._defaultValue,
-  getList: function() purpleKeyValuePairs(this._defaultValue) ||
-                      EmptyEnumerator,
+  getList: function()
+    // Convert a JavaScript object map {"name1": "value1", "name2": "value2"}
+    Object.keys(this._defaultValue).length ? new nsSimpleEnumerator(
+      Object.keys(this._defaultValue)
+            .map(function(key) new purpleKeyValuePair(key,
+                                                      this._defaultValue[key]))
+    ) : EmptyEnumerator,
 
   get classDescription() "Preference for Account Options",
   getInterfaces: function(countRef) {
@@ -670,15 +668,9 @@ purplePref.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
 };
 
-// Convert a JavaScript object mapping {"name1": "value1", "name2": "value2"}
-function purpleKeyValuePairs(obj) {
-  return new nsSimpleEnumerator(
-    Object.keys(obj).map(function(key) new purpleKeyValuePair(key, obj[key]))
-  );
-}
-function purpleKeyValuePair(name, value) {
-  this.name = name;
-  this.value = value;
+function purpleKeyValuePair(aName, aValue) {
+  this.name = aName;
+  this.value = aValue;
 }
 purpleKeyValuePair.prototype = {
   get classDescription() "Key Value Pair for Preferences",
@@ -731,41 +723,36 @@ const GenericProtocolPrototype = {
 
   getAccount: function(aKey, aName) { throw Cr.NS_ERROR_NOT_IMPLEMENTED; },
 
-  // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
   _getOptionDefault: function(aName) {
     if (this.options && this.options.hasOwnProperty(aName))
       return this.options[aName].default;
-    throw "The preference " + aName +
-          " does not have a default value available in " + this.id + ".";
+    throw aName + " has no default value in " + this.id + ".";
   },
   getOptions: function() {
     if (!this.options)
       return EmptyEnumerator;
 
-    const types = {boolean: "Bool", string: "String", number: "Int", object: "List"};
+    const types = {boolean: "Bool", string: "String", number: "Int",
+                   object: "List"};
+
     let purplePrefs = [];
-
-    return new nsSimpleEnumerator(
-      Object.keys(this._participants)
-            .map(function(key) {
-              let option = this.options[optionName];
-              if (!((typeof option.default) in types))
-                throw "Invalid type for preference: " + optionName + ".";
-
-              let type = Ci.purpleIPref["type" + types[typeof option.default]];
-              return new purplePref(optionName,
-                                    option.label,
-                                    type,
-                                    option.default,
-                                    option.masked);
-            }, this)
-    );
-
     for (let optionName in this.options) {
+      let option = this.options[optionName];
+      if (!((typeof option.default) in types)) {
+        throw "Invalid type for preference: " + optionName + ".";
+        continue;
+      }
 
+      let type = Ci.purpleIPref["type" + types[typeof option.default]];
+      purplePrefs.push(new purplePref(optionName,
+                                      option.label,
+                                      type,
+                                      option.default,
+                                      option.masked));
     }
     return new nsSimpleEnumerator(purplePrefs);
   },
+  // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
   getUsernameSplit: function() EmptyEnumerator,
   get usernameEmptyText() "",
   accountExists: function() false, //FIXME
