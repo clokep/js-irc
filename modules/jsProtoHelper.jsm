@@ -172,8 +172,8 @@ const GenericAccountPrototype = {
   setString: function(aName, aVal) this._base.setString(aName, aVal),
   getPref: function (aName, aType)
     this.prefs.prefHasUserValue(aName) ?
-    this.prefs["get" + aType + "Pref"](aName) :
-    this.protocol._getOptionDefault(aName),
+      this.prefs["get" + aType + "Pref"](aName) :
+      this.protocol._getOptionDefault(aName),
   getInt: function(aName) this.getPref(aName, "Int"),
   getString: function(aName) this.getPref(aName, "Char"),
   getBool: function(aName) this.getPref(aName, "Bool"),
@@ -648,13 +648,17 @@ purplePref.prototype = {
   getBool: function() this._defaultValue,
   getInt: function() this._defaultValue,
   getString: function() this._defaultValue,
-  getList: function()
-    // Convert a JavaScript object map {"name1": "value1", "name2": "value2"}
-    Object.keys(this._defaultValue).length ? new nsSimpleEnumerator(
-      Object.keys(this._defaultValue)
-            .map(function(key) new purpleKeyValuePair(key, this[key]),
-                 this._defaultValue)
-    ) : EmptyEnumerator,
+  getList: function() {
+    // Convert a JavaScript object map {"value 1": "label 1", ...}
+    let keys = Object.keys(this._defaultValue);
+    if (!keys.length)
+      return EmptyEnumerator;
+
+    return new nsSimpleEnumerator(
+      keys.map(function(key) new purpleKeyValuePair(this[key], key),
+               this._defaultValue)
+    );
+  },
 
   get classDescription() "Preference for Account Options",
   getInterfaces: function(countRef) {
@@ -675,27 +679,21 @@ function purpleKeyValuePair(aName, aValue) {
 purpleKeyValuePair.prototype = {
   get classDescription() "Key Value Pair for Preferences",
   getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIKeyValuePair];
     countRef.value = interfaces.length;
     return interfaces;
   },
   getHelperForLanguage: function(language) null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIKeyValuePair,
+                                         Ci.nsIClassInfo])
 };
 
 function purpleProxyInfo(type) {
   this.type = type;
 }
 purpleProxyInfo.prototype = {
-  get useGlobal() -1,
-  get noProxy() 0,
-  get httpProxy() 1,
-  get socks4Proxy() 2,
-  get socks5Proxy() 3,
-  get useEnvVar() 4,
-
   get classDescription() "Preference for Account Options",
   getInterfaces: function(countRef) {
     var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
@@ -732,23 +730,18 @@ const GenericProtocolPrototype = {
     if (!this.options)
       return EmptyEnumerator;
 
-    const types = {boolean: "Bool", string: "String", number: "Int",
-                   object: "List"};
+    const types =
+      {boolean: "Bool", string: "String", number: "Int", object: "List"};
 
     let purplePrefs = [];
     for (let optionName in this.options) {
       let option = this.options[optionName];
-      if (!((typeof option.default) in types)) {
+      if (!((typeof option.default) in types))
         throw "Invalid type for preference: " + optionName + ".";
-        continue;
-      }
 
       let type = Ci.purpleIPref["type" + types[typeof option.default]];
-      purplePrefs.push(new purplePref(optionName,
-                                      option.label,
-                                      type,
-                                      option.default,
-                                      option.masked));
+      purplePrefs.push(new purplePref(optionName, option.label, type,
+                                      option.default, option.masked));
     }
     return new nsSimpleEnumerator(purplePrefs);
   },
