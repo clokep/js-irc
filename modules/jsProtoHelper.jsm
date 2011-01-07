@@ -48,7 +48,6 @@ var EXPORTED_SYMBOLS = [
   "GenericConvChatBuddyPrototype",
   "ChatRoomField",
   "ChatRoomFieldValues",
-  "UsernameSplit",
   "purpleProxyInfo",
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
@@ -745,8 +744,18 @@ const GenericProtocolPrototype = {
     }
     return new nsSimpleEnumerator(purplePrefs);
   },
+  getUsernameSplit: function() {
+    if (!this.usernameSplits || !this.usernameSplits.length)
+      return EmptyEnumerator;
+
+    return new nsSimpleEnumerator(this.usernameSplits.map(function(value)
+      new UsernameSplit(value.label,
+                        value.separator,
+                        value.defaultServer,
+                        value.reverse)
+    ));
+  },
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
-  getUsernameSplit: function() EmptyEnumerator,
   get usernameEmptyText() "",
   accountExists: function() false, //FIXME
 

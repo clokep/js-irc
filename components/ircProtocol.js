@@ -435,12 +435,10 @@ Protocol.prototype = {
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
 
-  getUsernameSplit: function() {
-    return new nsSimpleEnumerator([new UsernameSplit("Server",
-                                                     "@",
-                                                     "irc.freenode.com",
-                                                     true)]);
-  },
+  usernameSplits: [
+    {"label": "Server", "separator": "@", "defaultServer": "irc.freenode.com",
+     "reverse": true}
+  ],
 
   options: {
     "port": {label: "Port", default: 6667},
@@ -450,7 +448,7 @@ Protocol.prototype = {
     "username": {label: "Username", default: ""},
     "realname": {label: "Real name", default: ""},
     //"quitmsg": {label: "Quit message", default: ""}, // XXX Unused
-    //"test": {label: "Test", default: {"item one": "item 2", "ok": "OKKK"}}
+    "test": {label: "Test", default: {"value one": "label one", "value two": "label two"}},
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
