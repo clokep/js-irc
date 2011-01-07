@@ -652,8 +652,8 @@ purplePref.prototype = {
     // Convert a JavaScript object map {"name1": "value1", "name2": "value2"}
     Object.keys(this._defaultValue).length ? new nsSimpleEnumerator(
       Object.keys(this._defaultValue)
-            .map(function(key) new purpleKeyValuePair(key,
-                                                      this._defaultValue[key]))
+            .map(function(key) new purpleKeyValuePair(key, this[key]),
+                 this._defaultValue)
     ) : EmptyEnumerator,
 
   get classDescription() "Preference for Account Options",
