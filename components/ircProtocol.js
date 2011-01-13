@@ -294,19 +294,10 @@ Account.prototype = {
     // aComponents.getValue("password"); // XXX handle passwords here
   },
 
-  getChatRoomFields: function() {
-    let fields = [new ChatRoomField("_Channel",
-                                    "channel",
-                                    Ci.purpleIChatRoomField.TYPE_TEXT,
-                                    true),
-                  new ChatRoomField("_Password",
-                                    "password",
-                                    Ci.purpleIChatRoomField.TYPE_PASSWORD,
-                                    false)];
-    return new nsSimpleEnumerator(fields);
-  },
-  getChatRoomDefaultFieldValues: function(aDefaultChatName) {
-    return new ChatRoomFieldValues();
+  chatRoomFields: {
+    "channel": {"label": "_Channel", "default": "", "isPassword": true},
+    "password": {"label": "_Password", "default": "", "required": false},
+    "sampleIntField": {"label": "_Channel", "default": 4, "required": true, "min": 0, "max": 10}
   },
 
   // Attributes

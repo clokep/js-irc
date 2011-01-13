@@ -162,9 +162,44 @@ const GenericAccountPrototype = {
      return null;
    }
   },
-  getChatRoomFields: function() this._base.getChatRoomFields(),
-  getChatRoomDefaultFieldValues: function(aDefaultChatName)
-    this._base.getChatRoomDefaultFieldValues(aDefaultChatName),
+  getChatRoomFields: function() {
+    if (!this.chatRoomFields)
+      return EmptyEnumerator;
+
+    let chatRoomFields = [];
+    for (let chatRoomFieldName in this.chatRoomFields) {
+      let chatRoomField = this.chatRoomFields[chatRoomFieldName];
+
+      let type = typeof chatRoomField.default;
+      if (type == "string") {
+        if (chatRoomField.isPassword)
+          type = "PASSWORD";
+        else
+          type = "TEXT";
+      } else if (type == "number")
+        type = "INT"
+      else
+        throw "Invalid type for chat room field: " + chatRoomFieldName + ".";
+      type = Ci.purpleIChatRoomField["TYPE_" + type];
+
+      chatRoomFields.push(new ChatRoomField(
+        chatRoomField.label, chatRoomFieldName, type, chatRoomField.required,
+        chatRoomField.min, chatRoomField.max
+      ));
+    }
+    return new nsSimpleEnumerator(chatRoomFields);
+  },
+  getChatRoomDefaultFieldValues: function(aDefaultChatName) {
+    if (!this.chatRoomFields)
+      return EmptyEnumerator;
+
+    let chatRoomDefaultFieldValues = [];
+    for (let chatRoomFieldName in this.chatRoomFields) {
+      let chatRoomField = this.chatRoomFields[chatRoomFieldName];
+      chatRoomDefaultFieldValues[chatRoomFieldName] = chatRoomField.default;
+    }
+    return new ChatRoomFieldValues(chatRoomDefaultFieldValues);
+  },
   joinChat: function(aComponents) this._base.joinChat(aComponents),
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
   setInt: function(aName, aVal) this._base.setInt(aName, aVal),
