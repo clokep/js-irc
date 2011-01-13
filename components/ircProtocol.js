@@ -208,8 +208,6 @@ Account.prototype = {
   _pump: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
-  canJoinChat: true,
-
   proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
 
   // Data listener object
