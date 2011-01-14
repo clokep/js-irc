@@ -204,16 +204,17 @@ ircParser = {
       // QUIT [ < Quit Message> ]
       // Loop over every conversation with the user and display that they quit
       for each (let conversation in this._conversations) {
-        if (conversation._hasParticipant(message.nickname)) {
-        let quitMessage = message.nickname + " has left the room (Quit";
-        // If a quit message was included, show it
-        if (message.params.length)
-          quitMessage += ": function(message) { " + message.params[0];
-        quitMessage += ").";
-        conversation.writeMessage(message.source,
-                      quitMessage,
-                      {system: true});
-        conversation._removeParticipant(message.nickname);
+        if (conversation.isChat &&
+            conversation._hasParticipant(message.nickname)) {
+          let quitMessage = message.nickname + " has left the room (Quit";
+          // If a quit message was included, show it
+          if (message.params.length)
+            quitMessage += ": function(message) { " + message.params[0];
+          quitMessage += ").";
+          conversation.writeMessage(message.source,
+                                    quitMessage,
+                                    {system: true});
+          conversation._removeParticipant(message.nickname);
         }
       }
     },
