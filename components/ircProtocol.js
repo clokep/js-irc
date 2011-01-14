@@ -288,8 +288,10 @@ Account.prototype = {
    * aComponents implements purpleIChatRoomFieldValues
    */
   joinChat: function(aComponents) {
-    this._getConversation(aComponents.getValue("channel"));
-    // aComponents.getValue("password"); // XXX handle passwords here
+    let params = [aComponents.getValue("channel")];
+    if (aComponents.getValue("password"))
+      params.push(aComponents.getValue("password"));
+    this._sendMessage("JOIN", params)
   },
 
   chatRoomFields: {
