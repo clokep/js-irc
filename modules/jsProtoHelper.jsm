@@ -162,7 +162,7 @@ const GenericAccountPrototype = {
     this._protocol = aProtoInstance;
     this._base.init(aKey, aName, aProtoInstance);
 
-    Services.obs.addObserver(this, "status-changed", true);
+    Services.obs.addObserver(this, "status-changed", false);
   },
   get base() this._base.purpleIAccountBase,
 
