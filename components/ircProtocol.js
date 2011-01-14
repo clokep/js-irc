@@ -61,7 +61,7 @@ var Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
-Cu.import("resource://irc-js/ircParser.jsm"); // XXX Custom jsProtoHelper
+Cu.import("resource://irc-js/ircParser.jsm");
 
 function dump(str) {
   Cc["@mozilla.org/consoleservice;1"]
@@ -426,8 +426,8 @@ Protocol.prototype = {
   get baseId() "prpl-irc",
 
   usernameSplits: [
-    {"label": "Server", "separator": "@", "defaultServer": "irc.freenode.com",
-     "reverse": true}
+    {label: "Server", separator: "@", defaultValue: "irc.freenode.com",
+     reverse: true}
   ],
 
   options: {

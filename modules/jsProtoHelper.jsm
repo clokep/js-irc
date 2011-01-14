@@ -124,7 +124,7 @@ const GenericAccountPrototype = {
     this._protocol = aProtoInstance;
     this._base.init(aKey, aName, aProtoInstance);
 
-    Services.obs.addObserver(this, "status-changed", false);
+    Services.obs.addObserver(this, "status-changed", true);
   },
   get base() this._base.purpleIAccountBase,
 
@@ -134,11 +134,13 @@ const GenericAccountPrototype = {
    * aData is <status text>
    */
   observe: function(aSubject, aTopic, aMsg) {
-    let statusType = aSubject.currentStatusType;
-    if (statusType == Ci.purpleICoreService.STATUS_OFFLINE)
-      this.disconnect();
-    else
-      this.statusChanged(statusType, aMsg);
+    if (aTopic == "status-changed") {
+      let statusType = aSubject.currentStatusType;
+      if (statusType == Ci.purpleICoreService.STATUS_OFFLINE)
+        this.disconnect();
+      else
+        this.statusChanged(statusType, aMsg);
+    }
   },
   statusChanged: function(aStatusType, aMsg) {
     throw Components.results.NS_ERROR_NOT_IMPLEMENTED;
@@ -164,36 +166,21 @@ const GenericAccountPrototype = {
     if (!this.chatRoomFields)
       return EmptyEnumerator;
 
-    let chatRoomFields = [];
-    for (let chatRoomFieldName in this.chatRoomFields) {
-      let chatRoomField = this.chatRoomFields[chatRoomFieldName];
-
-      let type = typeof chatRoomField.default;
-      if (type == "number")
-        type = "INT"
-      else if (chatRoomField.isPassword)
-        type = "PASSWORD";
-      else
-        type = "TEXT";
-      type = Ci.purpleIChatRoomField["TYPE_" + type];
-
-      chatRoomFields.push(new ChatRoomField(
-        chatRoomField.label, chatRoomFieldName, type, chatRoomField.required,
-        chatRoomField.min, chatRoomField.max
-      ));
-    }
-    return new nsSimpleEnumerator(chatRoomFields);
+    let fields = [];
+    for (let fieldName in this.chatRoomFields)
+      fields.push(new ChatRoomField(fieldName, this.chatRoomFields[fieldName]));
+    return new nsSimpleEnumerator(fields);
   },
   getChatRoomDefaultFieldValues: function(aDefaultChatName) {
+    //FIXME: support aDefaultChatName once there's a use case in the UI.
+
     if (!this.chatRoomFields)
       return EmptyEnumerator;
 
-    let chatRoomDefaultFieldValues = [];
-    for (let chatRoomFieldName in this.chatRoomFields) {
-      let chatRoomField = this.chatRoomFields[chatRoomFieldName];
-      chatRoomDefaultFieldValues[chatRoomFieldName] = chatRoomField.default;
-    }
-    return new ChatRoomFieldValues(chatRoomDefaultFieldValues);
+    let defaultFieldValues = [];
+    for (let fieldName in this.chatRoomFields)
+      defaultFieldValues[fieldName] = this.chatRoomFields[fieldName].default;
+    return new ChatRoomFieldValues(defaultFieldValues);
   },
   joinChat: function(aComponents) this._base.joinChat(aComponents),
   setBool: function(aName, aVal) this._base.setBool(aName, aVal),
@@ -210,7 +197,7 @@ const GenericAccountPrototype = {
 
   get prefs() this._prefs ||
     (this._prefs = Services.prefs.getBranch("messenger.account." + this.id +
-                                             ".options.")),
+                                            ".options.")),
 
   // grep attribute purpleIAccount.idl |sed 's/.* //;s/;//;s/\(.*\)/  get \1() this._base.\1,/'
   get canJoinChat() this._base.canJoinChat,
@@ -254,14 +241,16 @@ const GenericAccountPrototype = {
   set proxyInfo(val) { this._base.proxyInfo = val; },
 
   getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIAccount];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.nsIWeakReference,
+                      Ci.purpleIAccount];
     countRef.value = interfaces.length;
     return interfaces;
   },
   getHelperForLanguage: function(language) null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIAccount, Ci.nsIClassInfo])
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIAccount, Ci.nsIClassInfo,
+                                         Ci.nsIWeakReference])
 };
 
 
@@ -589,82 +578,29 @@ const GenericConvChatBuddyPrototype = {
   typing: false
 };
 
-function ChatRoomField(aLabel, aIdentifier, aType, aRequired, aMin, aMax) {
-  this.label = aLabel;
-  this.identifier = aIdentifier;
-  this.type = aType;
-  this.required = !!aRequired;
-
-  // Only used for type == TYPE_INT
-  this.min = aMin;
-  this.max = aMax;
+function purpleProxyInfo(type) {
+  this.type = type;
 }
-ChatRoomField.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomField,
-                                         Ci.nsIClassInfo]),
+purpleProxyInfo.prototype = {
+  get classDescription() "Preference for Account Options",
   getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIChatRoomField];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
     countRef.value = interfaces.length;
     return interfaces;
   },
   getHelperForLanguage: function(language) null,
-  contractID: null,
-  classDescription: "ChatRoomField object",
-  classID: null,
-  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: 0
-};
-
-function ChatRoomFieldValues(aMap) {
-  this.values = aMap;
-}
-ChatRoomFieldValues.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomFieldValues,
-                                         Ci.nsIClassInfo]),
-  getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports,
-                      Ci.purpleIChatRoomFieldValues];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
-  getHelperForLanguage: function(language) null,
-  contractID: null,
-  classDescription: "ChatRoomFieldValues object",
-  classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-
-  getValue: function(aIdentifier) {
-    if (this.values.hasOwnProperty(aIdentifier))
-        return this.values[aIdentifier];
-    return null;
-  },
-  setValue: function(aIdentifier, aValue) {
-    this.values[aIdentifier] = aValue;
-  }
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
 };
-
-function UsernameSplit(aLabel, aSeparator, aDefaultValue, aReverse) {
-  this.label = aLabel;
-  this.separator = aSeparator;
-  this.defaultValue = aDefaultValue;
-  this.reverse = !!aReverse; // Ensure boolean
+function purpleProxy(host, port, username, password) {
+  this.host = host;
+  this.port = port;
+  this.username = username ? username : "";
+  this.password = password ? password : "";
 }
-UsernameSplit.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
-                                         Ci.nsIClassInfo]),
-  getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIUsernameSplit];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
-  getHelperForLanguage: function(language) null,
-  contractID: null,
-  classDescription: "Username Split object",
-  classID: null,
-  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: 0
-};
+purpleProxy.prototype = purpleProxyInfo.prototype;
+
 
 function purplePref(aName, aLabel, aType, aDefaultValue, aMasked) {
   this.name = aName; // Preference name
@@ -720,28 +656,86 @@ purpleKeyValuePair.prototype = {
                                          Ci.nsIClassInfo])
 };
 
-function purpleProxyInfo(type) {
-  this.type = type;
+function UsernameSplit(aValues) {
+  this._values = aValues;
 }
-purpleProxyInfo.prototype = {
-  get classDescription() "Preference for Account Options",
+UsernameSplit.prototype = {
+  get label() this._values.label,
+  get separator() this._values.separator,
+  get defaultValue() this._values.defaultValue,
+  get reverse() !!this._values.reverse, // Ensure boolean
+
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIUsernameSplit,
+                                         Ci.nsIClassInfo]),
   getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIUsernameSplit];
     countRef.value = interfaces.length;
     return interfaces;
   },
   getHelperForLanguage: function(language) null,
+  contractID: null,
+  classDescription: "Username Split object",
+  classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0
+};
+
+function ChatRoomField(aIdentifier, aField) {
+  this.identifier = aIdentifier;
+  this.label = aField.label;
+  this.required = !!aField.required;
+
+  let type = "TEXT";
+  if ((typeof aField.default) == "number") {
+    type = "INT"
+    this.min = aField.min;
+    this.max = aField.max;
+  }
+  else if (aField.isPassword)
+    type = "PASSWORD";
+  this.type = Ci.purpleIChatRoomField["TYPE_" + type];
+}
+ChatRoomField.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomField,
+                                         Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIChatRoomField];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  contractID: null,
+  classDescription: "ChatRoomField object",
+  classID: null,
+  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
+  flags: 0
+};
+
+function ChatRoomFieldValues(aMap) {
+  this.values = aMap;
+}
+ChatRoomFieldValues.prototype = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomFieldValues,
+                                         Ci.nsIClassInfo]),
+  getInterfaces: function(countRef) {
+    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports,
+                      Ci.purpleIChatRoomFieldValues];
+    countRef.value = interfaces.length;
+    return interfaces;
+  },
+  getHelperForLanguage: function(language) null,
+  contractID: null,
+  classDescription: "ChatRoomFieldValues object",
+  classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
   flags: 0,
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
+
+  getValue: function(aIdentifier)
+    this.values.hasOwnProperty(aIdentifier) ? this.values[aIdentifier] : null,
+  setValue: function(aIdentifier, aValue) {
+    this.values[aIdentifier] = aValue;
+  }
 };
-function purpleProxy(host, port, username, password) {
-  this.host = host;
-  this.port = port;
-  this.username = username ? username : "";
-  this.password = password ? password : "";
-}
-purpleProxy.prototype = purpleProxyInfo.prototype;
 
 // the name getter needs to be implemented
 const GenericProtocolPrototype = {
@@ -779,12 +773,8 @@ const GenericProtocolPrototype = {
     if (!this.usernameSplits || !this.usernameSplits.length)
       return EmptyEnumerator;
 
-    return new nsSimpleEnumerator(this.usernameSplits.map(function(value)
-      new UsernameSplit(value.label,
-                        value.separator,
-                        value.defaultServer,
-                        value.reverse)
-    ));
+    return new nsSimpleEnumerator(
+      this.usernameSplits.map(function(split) new UsernameSplit(split)));
   },
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
   get usernameEmptyText() "",
