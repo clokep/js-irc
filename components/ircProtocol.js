@@ -293,9 +293,8 @@ Account.prototype = {
   },
 
   chatRoomFields: {
-    "channel": {"label": "_Channel", "default": "", "isPassword": true},
-    "password": {"label": "_Password", "default": "", "required": false},
-    "sampleIntField": {"label": "_Channel", "default": 4, "required": true, "min": 0, "max": 10}
+    "channel": {"label": "_Channel", "required": true},
+    "password": {"label": "_Password", "isPassword": true}
   },
 
   // Attributes

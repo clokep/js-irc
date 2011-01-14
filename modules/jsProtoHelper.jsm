@@ -46,8 +46,6 @@ var EXPORTED_SYMBOLS = [
   "GenericConvIMPrototype",
   "GenericConvChatPrototype",
   "GenericConvChatBuddyPrototype",
-  "ChatRoomField",
-  "ChatRoomFieldValues",
   "purpleProxyInfo",
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
@@ -171,15 +169,12 @@ const GenericAccountPrototype = {
       let chatRoomField = this.chatRoomFields[chatRoomFieldName];
 
       let type = typeof chatRoomField.default;
-      if (type == "string") {
-        if (chatRoomField.isPassword)
-          type = "PASSWORD";
-        else
-          type = "TEXT";
-      } else if (type == "number")
+      if (type == "number")
         type = "INT"
+      else if (chatRoomField.isPassword)
+        type = "PASSWORD";
       else
-        throw "Invalid type for chat room field: " + chatRoomFieldName + ".";
+        type = "TEXT";
       type = Ci.purpleIChatRoomField["TYPE_" + type];
 
       chatRoomFields.push(new ChatRoomField(
@@ -598,10 +593,11 @@ function ChatRoomField(aLabel, aIdentifier, aType, aRequired, aMin, aMax) {
   this.label = aLabel;
   this.identifier = aIdentifier;
   this.type = aType;
-  this.required = aRequired || false;
+  this.required = !!aRequired;
 
-  this.min = aMin || 0;
-  this.max = aMax || 1000; // XXX
+  // Only used for type == TYPE_INT
+  this.min = aMin;
+  this.max = aMax;
 }
 ChatRoomField.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomField,
@@ -619,8 +615,8 @@ ChatRoomField.prototype = {
   flags: 0
 };
 
-function ChatRoomFieldValues(aValue) {
-  this._hash = {};
+function ChatRoomFieldValues(aMap) {
+  this.values = aMap;
 }
 ChatRoomFieldValues.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.purpleIChatRoomFieldValues,
@@ -639,12 +635,12 @@ ChatRoomFieldValues.prototype = {
   flags: 0,
 
   getValue: function(aIdentifier) {
-    if (this._hash.hasOwnProperty(aIdentifier))
-        return this._hash[aIdentifier];
+    if (this.values.hasOwnProperty(aIdentifier))
+        return this.values[aIdentifier];
     return null;
   },
   setValue: function(aIdentifier, aValue) {
-    this._hash[aIdentifier] = aValue;
+    this.values[aIdentifier] = aValue;
   }
 };
 
