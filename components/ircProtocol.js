@@ -211,11 +211,11 @@ Account.prototype = {
   proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
 
   // Data listener object
-  onStartRequest: function(request, context) { },
-  onStopRequest: function(request, context, status) { },
-  onDataAvailable: function(request, context, inputStream, offset, count) {
+  onStartRequest: function(aRequest, aContext) { },
+  onStopRequest: function(aRequest, aContext, aStatus) { },
+  onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
     let data =
-      this._inputStreamBuffer + this._scriptableInputStream.read(count);
+      this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
     data = data.split(/\r\n/);
 
     // Store the (possible) incomplete part
