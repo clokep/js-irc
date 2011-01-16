@@ -37,17 +37,21 @@
 
 var EXPORTED_SYMBOLS = ["ircParser"];
 
-serverMessage = function(message) {
-  this._getConversation(message.source).writeMessage(
-    message.source,
-    message.params.slice(1).join(" "),
+var Cc = Components.classes;
+var Ci = Components.interfaces;
+var Cu = Components.utils;
+
+serverMessage = function(aMessage) {
+  this._getConversation(aMessage.source).writeMessage(
+    aMessage.source,
+    aMessage.params.slice(1).join(" "),
     {system: true}
   );
 };
-serverMessageEnd = function(message) {
-  this._getConversation(message.source).writeMessage(
-    message.source,
-    message.params.slice(1, -1).join(" "),
+serverMessageEnd = function(aMessage) {
+  this._getConversation(aMessage.source).writeMessage(
+    aMessage.source,
+    aMessage.params.slice(1, -1).join(" "),
     {system: true}
   );
 };
@@ -55,294 +59,294 @@ serverMessageEnd = function(message) {
 ircParser = {
   // Handle command responses
 	// XXX Should this have an argument for different RFCs?
-	parse: function(thisArg, message) {
-		let command = message.command.toUpperCase();
+	parse: function(aAccount, aMessage) {
+		let command = aMessage.command.toUpperCase();
 		if (this.rfc2812.hasOwnProperty(command))
-			this.rfc2812[command].call(thisArg, message);
+			this.rfc2812[command].call(aAccount, aMessage);
     else {
       // XXX Output it for debug
-      Cu.reportError("Unhandled: " + message.rawMessage);
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.rawMessage,
+      Cu.reportError("Unhandled: " + aMessage.rawMessage);
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.rawMessage,
         {error: true}
       );
     }
 	},
 
   rfc2812: {
-    "ERROR": function(message) {
+    "ERROR": function(aMessage) {
       // ERROR <error message>
       // Client connection has been terminated
       for each (let conversation in this._conversations) {
-        conversation.writeMessage(message.source,
+        conversation.writeMessage(aMessage.source,
                     "Your account has been disconnected.",
                     {system: true});
       }
       // Notify account manager
       this._disconnect();
     },
-    "INVITE": function(message) {
+    "INVITE": function(aMessage) {
       // INVITE  <nickname> <channel>
       // XXX prompt user to join channel
     },
-    "JOIN": function(message) {
+    "JOIN": function(aMessage) {
       // JOIN ( <channel> *( "," <channel> ) [ <key> *( "," <key> ) ] ) / "0"
       // Add the buddy to each channel
-      for each (let channelName in message.params[0].split(",")) {
+      for each (let channelName in aMessage.params[0].split(",")) {
         let conversation = this._getConversation(channelName);
-        if (message.nickname != this._nickname) {
-        // Don't do anything if you join, RPL_NAMES takes care of that case
-        conversation._getParticipant(message.nickname, true);
-        let joinMessage = message.nickname + " [<i>" + message.source +
-                  "</i>] entered the room.";
-        conversation.writeMessage(message.nickname,
-                      joinMessage,
-                      {system: true});
+        if (aMessage.nickname != this._nickname) {
+          // Don't do anything if you join, RPL_NAMES takes care of that case
+          conversation._getParticipant(aMessage.nickname, true);
+          let joinMessage = aMessage.nickname + " [<i>" + aMessage.source +
+                            "</i>] entered the room.";
+          conversation.writeMessage(aMessage.nickname,
+                                    joinMessage,
+                                    {system: true});
         }
       }
     },
-    "KICK": function(message) {
+    "KICK": function(aMessage) {
       // KICK <channel> *( "," <channel> ) <user> *( "," <user> ) [<comment>]
-      var usersNames = message.params[1].split(",");
-      for each (let channelName in message.params[0].split(",")) {
+      var usersNames = aMessage.params[1].split(",");
+      for each (let channelName in aMessage.params[0].split(",")) {
         let conversation = this._getConversation(channelName);
         for each (let username in usersNames) {
-        let kickMessage = username + " has been kicked";
-        if (message.params.length == 3)
-          kickMessage += " [<i>" + message.params[2] + "</i>]";
-        kickMessage += ".";
-        conversation.writeMessage(message.nickname,
-                      kickMessage,
-                      {system: true});
-        conversation._removeParticipant(username);
+          let kickMessage = username + " has been kicked";
+          if (aMessage.params.length == 3)
+            kickMessage += " [<i>" + aMessage.params[2] + "</i>]";
+          kickMessage += ".";
+          conversation.writeMessage(aMessage.nickname,
+                                    kickMessage,
+                                    {system: true});
+          conversation._removeParticipant(username);
         }
       }
     },
-    "MODE": function(message) {
+    "MODE": function(aMessage) {
       // MODE <nickname> *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
-      if (message.params.length == 3) {
+      if (aMessage.params.length == 3) {
         // Update the mode of a ConvChatBuddy & display in UI
-        let conversation = this._getConversation(message.params[0]);
-        let convChatBuddy = conversation._getParticipant(message.params[2]);
-        convChatBuddy._setMode(message.params[1]);
-        let modeMessage = "mode (" + message.params[1] + " " +
-                  message.params[2] + ") by " + message.nickname;
-        conversation.writeMessage(message.nickname,
-                    modeMessage,
-                    {system: true});
+        let conversation = this._getConversation(aMessage.params[0]);
+        let convChatBuddy = conversation._getParticipant(aMessage.params[2]);
+        convChatBuddy._setMode(aMessage.params[1]);
+        let modeMessage = "mode (" + aMessage.params[1] + " " +
+                          aMessage.params[2] + ") by " + aMessage.nickname;
+        conversation.writeMessage(aMessage.nickname,
+                                  modeMessage,
+                                  {system: true});
         conversation.notifyObservers(convChatBuddy, "chat-buddy-update");
       } else {
         // XXX keep track of our mode? Display in UI?
       }
     },
-    "NICK": function(message) {
+    "NICK": function(aMessage) {
       // NICK <nickname>
       for each (let conversation in this._conversations) {
         if (conversation.isChat) {
-        // Update the nick in every chat conversation
-        let oldNick = message.nickname;
-        let convChatBuddy = conversation._getParticipant(message.nickname);
-        convChatBuddy._name = message.params[0];
+          // Update the nick in every chat conversation
+          let oldNick = aMessage.nickname;
+          let convChatBuddy = conversation._getParticipant(aMessage.nickname);
+          convChatBuddy._name = aMessage.params[0];
 
-        let nickMessage = message.nickname + " is now known as " +
-                  message.params[0];
-        conversation.writeMessage(message.nickname,
-                      nickMessage,
-                      {system: true});
-        conversation.notifyObservers(convChatBuddy,
-                       "chat-buddy-update",
-                       message.nickname); // Old nickname
+          let nickMessage = aMessage.nickname + " is now known as " +
+                            aMessage.params[0];
+          conversation.writeMessage(aMessage.nickname,
+                                    nickMessage,
+                                    {system: true});
+          conversation.notifyObservers(convChatBuddy,
+                                       "chat-buddy-update",
+                                       aMessage.nickname); // Old nickname
         }
       }
     },
-    "NOTICE": function(message) {
+    "NOTICE": function(aMessage) {
       // NOTICE <msgtarget> <text>
-      this._getConversation(message.source).writeMessage(
-        message.nickname || message.source,
-        message.params[1],
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.nickname || aMessage.source,
+        aMessage.params[1],
         {incoming: true}
       );
     },
-    "PART": function(message) {
+    "PART": function(aMessage) {
       // PART <channel> *( "," <channel> ) [ <Part Message> ]
       // Display the message and remove them from the rooms they're in
-      for each (let channelName in message.params[0].split(",")) {
+      for each (let channelName in aMessage.params[0].split(",")) {
         if (!this._hasConversation(channelName))
-        continue; // Handle when we closed the window
+          continue; // Handle when we closed the window
         let conversation = this._getConversation(channelName);
         let partMessage;
-        if (message.nickname == this._nickname) // XXX remove all buddies?
-        partMessage = "You have left the room (Part";
+        if (aMessage.nickname == this._nickname) // XXX remove all buddies?
+          partMessage = "You have left the room (Part";
         else
-        partMessage = message.nickname + " has left the room (Part";
+          partMessage = aMessage.nickname + " has left the room (Part";
         // If a part message was included, show it
-        if (message.params.length == 2)
-        partMessage += ": function(message) { " + message.params[1];
+        if (aMessage.params.length == 2)
+          partMessage += ": function(aMessage) { " + aMessage.params[1];
         partMessage += ").";
-        conversation.writeMessage(message.source,
-                    partMessage,
-                    {system: true});
-        conversation._removeParticipant(message.nickname);
+        conversation.writeMessage(aMessage.source,
+                                  partMessage,
+                                  {system: true});
+        conversation._removeParticipant(aMessage.nickname);
       }
     },
-    "PING": function(message) {
+    "PING": function(aMessage) {
       // PING <server1 [ <server2> ]
       // Keep the connection alive
-      this._sendMessage("PONG", [message.params[0]]);
+      this._sendMessage("PONG", [aMessage.params[0]]);
     },
-    "PRIVMSG": function(message) {
+    "PRIVMSG": function(aMessage) {
       // PRIVMSG <msgtarget> <text to be sent>
       // Display message in conversation
-      this._getConversation(message.params[0]).writeMessage(
-        message.nickname || message.source,
-        message.params[1],
+      this._getConversation(aMessage.params[0]).writeMessage(
+        aMessage.nickname || aMessage.source,
+        aMessage.params[1],
         {incoming: true}
       );
     },
-    "QUIT": function(message) {
+    "QUIT": function(aMessage) {
       // QUIT [ < Quit Message> ]
       // Loop over every conversation with the user and display that they quit
       for each (let conversation in this._conversations) {
         if (conversation.isChat &&
-            conversation._hasParticipant(message.nickname)) {
-          let quitMessage = message.nickname + " has left the room (Quit";
+            conversation._hasParticipant(aMessage.nickname)) {
+          let quitMessage = aMessage.nickname + " has left the room (Quit";
           // If a quit message was included, show it
-          if (message.params.length)
-            quitMessage += ": function(message) { " + message.params[0];
+          if (aMessage.params.length)
+            quitMessage += ": function(aMessage) { " + aMessage.params[0];
           quitMessage += ").";
-          conversation.writeMessage(message.source,
+          conversation.writeMessage(aMessage.source,
                                     quitMessage,
                                     {system: true});
-          conversation._removeParticipant(message.nickname);
+          conversation._removeParticipant(aMessage.nickname);
         }
       }
     },
-    "SQUIT": function(message) {
+    "SQUIT": function(aMessage) {
       // XXX do we need this?
     },
-    "TOPIC": function(message) {
+    "TOPIC": function(aMessage) {
       // TOPIC <channel> [ <topic> ]
       // Show topic as a message
-      this._getConversation(message.params[0]).writeMessage(
-        message.nickname || message.source,
-        message.nickname + " has changed the topic to: " + message.params[1],
+      this._getConversation(aMessage.params[0]).writeMessage(
+        aMessage.nickname || aMessage.source,
+        aMessage.nickname + " has changed the topic to: " + aMessage.params[1],
         {system: true}
       );
     },
-    "001": function(message) { // RPL_WELCOME
+    "001": function(aMessage) { // RPL_WELCOME
       // Welcome to the Internet Relay Network <nick>!<user>@<host>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
       this.base.connected();
     },
-    "002": function(message) { // RPL_YOURHOST
+    "002": function(aMessage) { // RPL_YOURHOST
       // Your host is <servername>, running version <ver>
       // XXX Use the host instead of the user for all the "server" messages?
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "003": function(message) { // RPL_CREATED
+    "003": function(aMessage) { // RPL_CREATED
       //This server was created <date>
       // XXX parse this date and keep it for some reason? Do we care?
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "004": function(message) { // RPL_MYINFO
+    "004": function(aMessage) { // RPL_MYINFO
       // <servername> <version> <available user modes> <available channel modes>
       // XXX parse the available modes, let the UI respond and inform the user
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "005": function(message) { // RPL_BOUNCE
+    "005": function(aMessage) { // RPL_BOUNCE
       // Try server <server name>, port <port number>
       // XXX See ISupport documentation
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * Handle response to TRACE message
      */
-    "200": function(message) { // RPL_TRACELINK
+    "200": function(aMessage) { // RPL_TRACELINK
       // Link <version & debug level> <destination> <next server> V<protocol version> <link updateime in seconds> <backstream sendq> <upstream sendq>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "201": function(message) { // RPL_TRACECONNECTING
+    "201": function(aMessage) { // RPL_TRACECONNECTING
       // Try. <class> <server>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "202": function(message) { // RPL_TRACEHANDSHAKE
+    "202": function(aMessage) { // RPL_TRACEHANDSHAKE
       // H.S. <class> <server>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "203": function(message) { // RPL_TRACEUNKNOWN
+    "203": function(aMessage) { // RPL_TRACEUNKNOWN
       // ???? <class> [<client IP address in dot form>]
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "204": function(message) { // RPL_TRACEOPERATOR
+    "204": function(aMessage) { // RPL_TRACEOPERATOR
       // Oper <class> <nick>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "205": function(message) { // RPL_TRACEUSER
+    "205": function(aMessage) { // RPL_TRACEUSER
       // User <class> <nick>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "206": function(message) { // RPL_TRACESERVER
+    "206": function(aMessage) { // RPL_TRACESERVER
       // Serv <class> <int>S <int>C <server> <nick!user|*!*>@<host|server> V<protocol version>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "207": function(message) { // RPL_TRACESERVICE
+    "207": function(aMessage) { // RPL_TRACESERVICE
       // Service <class> <name> <type> <active type>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "208": function(message) { // RPL_TRACENEWTYPE
+    "208": function(aMessage) { // RPL_TRACENEWTYPE
       // <newtype> 0 <client name>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "209": function(message) { // RPL_TRACECLASS
+    "209": function(aMessage) { // RPL_TRACECLASS
       // Class <class> <count>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "210": function(message) { // RPL_TRACERECONNECTION
+    "210": function(aMessage) { // RPL_TRACERECONNECTION
       // Unused.
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * Handle stats message
      **/
-    "211": function(message) { // RPL_STATSLINKINFO
+    "211": function(aMessage) { // RPL_STATSLINKINFO
       // <linkname> <sendq> <sent messages> <sent Kbytes> <received messages> <received Kbytes> <time open>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "212": function(message) { // RPL_STATSCOMMAND
+    "212": function(aMessage) { // RPL_STATSCOMMAND
       // <command> <count> <byte count> <remote count>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "213": function(message) { // RPL_STATSCLINE
-      serverMessage.call(this, message);
+    "213": function(aMessage) { // RPL_STATSCLINE
+      serverMessage.call(this, aMessage);
     },
-    "214": function(message) { // RPL_STATSNLINE
-      serverMessage.call(this, message);
+    "214": function(aMessage) { // RPL_STATSNLINE
+      serverMessage.call(this, aMessage);
     },
-    "215": function(message) { // RPL_STATSILINE
-      serverMessage.call(this, message);
+    "215": function(aMessage) { // RPL_STATSILINE
+      serverMessage.call(this, aMessage);
     },
-    "216": function(message) { // RPL_STATSKLINE
-      serverMessage.call(this, message);
+    "216": function(aMessage) { // RPL_STATSKLINE
+      serverMessage.call(this, aMessage);
     },
-    "217": function(message) { // RPL_STATSQLINE
-      serverMessage.call(this, message);
+    "217": function(aMessage) { // RPL_STATSQLINE
+      serverMessage.call(this, aMessage);
     },
-    "218": function(message) { // RPL_STATSYLINE
+    "218": function(aMessage) { // RPL_STATSYLINE
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "219": function(message) { // RPL_ENDOFSTATS
+    "219": function(aMessage) { // RPL_ENDOFSTATS
       // <stats letter> :End of STATS report
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      *
      */
-    "221": function(message) { // RPL_UMODEIS
+    "221": function(aMessage) { // RPL_UMODEIS
       // <user mode string>
       // XXX update the UI accordingly
     },
@@ -350,129 +354,129 @@ ircParser = {
     /*
      * Services
      */
-    "231": function(message) { // RPL_SERVICEINFO
-      serverMessage.call(this, message);
+    "231": function(aMessage) { // RPL_SERVICEINFO
+      serverMessage.call(this, aMessage);
     },
-    "232": function(message) { // RPL_ENDOFSERVICES
-      serverMessage.call(this, message);
+    "232": function(aMessage) { // RPL_ENDOFSERVICES
+      serverMessage.call(this, aMessage);
     },
-    "233": function(message) { // RPL_SERVICE
+    "233": function(aMessage) { // RPL_SERVICE
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * Server
      */
-    "234": function(message) { // RPL_SERVLIST
+    "234": function(aMessage) { // RPL_SERVLIST
       // <name> <server> <mask> <type> <hopcount> <info>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "235": function(message) { // RPL_SERVLISTEND
+    "235": function(aMessage) { // RPL_SERVLISTEND
       // <mask> <type> :End of service listing
-      serverMessageEnd.call(this, message);
+      serverMessageEnd.call(this, aMessage);
     },
 
     /*
      * Stats
      * XXX some of these have real information?
      */
-    "240": function(message) { // RPL_STATSVLINE
-      serverMessage.call(this, message);
+    "240": function(aMessage) { // RPL_STATSVLINE
+      serverMessage.call(this, aMessage);
     },
-    "241": function(message) { // RPL_STATSLLINE
+    "241": function(aMessage) { // RPL_STATSLLINE
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "242": function(message) { // RPL_STATSUPTIME
+    "242": function(aMessage) { // RPL_STATSUPTIME
       // :Server Up %d days %d:%02d:%02d
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "243": function(message) { // RPL_STATSOLINE
+    "243": function(aMessage) { // RPL_STATSOLINE
       // O <hostmask> * <name>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "244": function(message) { // RPL_STATSHLINE
-      serverMessage.call(this, message);
+    "244": function(aMessage) { // RPL_STATSHLINE
+      serverMessage.call(this, aMessage);
     },
-    "245": function(message) { // RPL_STATSSLINE
+    "245": function(aMessage) { // RPL_STATSSLINE
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "246": function(message) { // RPL_STATSPING
-      serverMessage.call(this, message);
+    "246": function(aMessage) { // RPL_STATSPING
+      serverMessage.call(this, aMessage);
     },
-    "247": function(message) { // RPL_STATSBLINE
-      serverMessage.call(this, message);
+    "247": function(aMessage) { // RPL_STATSBLINE
+      serverMessage.call(this, aMessage);
     },
-    "250": function(message) { // RPL_STATSDLINE
+    "250": function(aMessage) { // RPL_STATSDLINE
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * LUSER messages
      */
-    "251": function(message) { // RPL_LUSERCLIENT
+    "251": function(aMessage) { // RPL_LUSERCLIENT
       // :There are <integer> users and <integer> services on <integer> servers
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "252": function(message) { // RPL_LUSEROP, 0 if not sent
+    "252": function(aMessage) { // RPL_LUSEROP, 0 if not sent
       // <integer> :operator(s) online
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "253": function(message) { // RPL_LUSERUNKNOWN, 0 if not sent
+    "253": function(aMessage) { // RPL_LUSERUNKNOWN, 0 if not sent
       // <integer> :unknown connection(s)
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "254": function(message) { // RPL_LUSERCHANNELS, 0 if not sent
+    "254": function(aMessage) { // RPL_LUSERCHANNELS, 0 if not sent
       // <integer> :channels formed
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "255": function(message) { // RPL_LUSERME
+    "255": function(aMessage) { // RPL_LUSERME
       // :I have <integer> clients and <integer> servers
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * ADMIN messages
      */
-    "256": function(message) { // RPL_ADMINME
+    "256": function(aMessage) { // RPL_ADMINME
       // <server> :Administrative info
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "257": function(message) { // RPL_ADMINLOC1
+    "257": function(aMessage) { // RPL_ADMINLOC1
       // :<admin info>
       // City, state & country
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "258": function(message) { // RPL_ADMINLOC2
+    "258": function(aMessage) { // RPL_ADMINLOC2
       // :<admin info>
       // Institution details
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "259": function(message) { // RPL_ADMINEMAIL
+    "259": function(aMessage) { // RPL_ADMINEMAIL
       // :<admin info>
       // XXX parse this for a contact email?
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * TRACELOG
      */
-    "261": function(message) { // RPL_TRACELOG
+    "261": function(aMessage) { // RPL_TRACELOG
       // File <logfile> <debug level>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "262": function(message) { // RPL_TRACEEND
+    "262": function(aMessage) { // RPL_TRACEEND
       // <server name> <version & debug level> :End of TRACE
-      serverMessageEnd.call(this, message);
+      serverMessageEnd.call(this, aMessage);
     },
 
     /*
      * Try again
      */
-    "263": function(message) { // RPL_TRYAGAIN
+    "263": function(aMessage) { // RPL_TRYAGAIN
       // <command> :Please wait a while and try again.
       // XXX setTimeout for a minute or so and try again?
     },
@@ -480,46 +484,46 @@ ircParser = {
     /*
      *
      */
-    "265": function(message) { // XXX nonstandard
+    "265": function(aMessage) { // XXX nonstandard
       // :Current Local Users: <integer>  Max: <integer>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "266": function(message) { // XXX nonstandard
+    "266": function(aMessage) { // XXX nonstandard
       // :Current Global Users: <integer>  Max: <integer>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    /*"300": function(message) { // RPL_NONE
+    /*"300": function(aMessage) { // RPL_NONE
       // XXX This is also something else, see below
       // Non-generic
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },*/
 
     /*
      * Status messages
      */
-    "301": function(message) { // RPL_AWAY
+    "301": function(aMessage) { // RPL_AWAY
       // <nick> :<away message>
-      this._getConversation(message.params[0]).writeMessage(
-        message.params[0],
-        message.params[1],
+      this._getConversation(aMessage.params[0]).writeMessage(
+        aMessage.params[0],
+        aMessage.params[1],
         {autoResponse: true}
       );
       // XXX set user as away on buddy list / conversation lists
     },
-    "302": function(message) { // RPL_USERHOST
+    "302": function(aMessage) { // RPL_USERHOST
       // :*1<reply> *( " " <reply )"
       // reply = nickname [ "*" ] "=" ( "+" / "-" ) hostname
       // XXX Can tell op / away from this
     },
-    "303": function(message) { // RPL_ISON
+    "303": function(aMessage) { // RPL_ISON
       // :*1<nick> *( " " <nick> )"
       // XXX Need to update the buddy list once that's implemented
     },
-    "305": function(message) { // RPL_NOAWAY
+    "305": function(aMessage) { // RPL_NOAWAY
       // :You are no longer marked as being away
       // XXX Update buddy list / conversation lists
     },
-    "306": function(message) { // RPL_NOWAWAY
+    "306": function(aMessage) { // RPL_NOWAWAY
       // :You have been marked as away
       // XXX Update buddy list / conversation lists
     },
@@ -527,37 +531,37 @@ ircParser = {
     /*
      * WHOIS
      */
-    "311": function(message) { // RPL_WHOISUSER
+    "311": function(aMessage) { // RPL_WHOISUSER
       // <nick> <user> <host> * :<real name>
       // XXX update user info
     },
-    "312": function(message) { // RPL_WHOISSERVER
+    "312": function(aMessage) { // RPL_WHOISSERVER
       // <nick> <server> :<server info>
       // XXX update server info? Do nothing? Why would we ever receive this?
     },
-    "313": function(message) { // RPL_WHOISOPERATOR
+    "313": function(aMessage) { // RPL_WHOISOPERATOR
       // <nick> :is an IRC operator
       // XXX update UI with operator status
     },
-    "314": function(message) { // RPL_WHOWASUSER
+    "314": function(aMessage) { // RPL_WHOWASUSER
       // <nick> <user> <host> * :<real name>
       // XXX user isn't online anyway, so do we care?
     },
-    "315": function(message) { // RPL_ENDOFWHO
+    "315": function(aMessage) { // RPL_ENDOFWHO
       // <name> :End of WHO list
       // XXX
     },
-    "300": function(message) { // RPL_WHOISCHANOP
+    "300": function(aMessage) { // RPL_WHOISCHANOP
       // Non-generic
     },
-    "317": function(message) { // RPL_WHOISIDLE
+    "317": function(aMessage) { // RPL_WHOISIDLE
       // <nick> <integer> :seconds idle
       // XXX update UI with user's idle status
     },
-    "318": function(message) { // RPL_ENDOFWHOIS
+    "318": function(aMessage) { // RPL_ENDOFWHOIS
       // <nick> :End of WHOIS list
     },
-    "319": function(message) { // RPL_WHOISCHANNELS
+    "319": function(aMessage) { // RPL_WHOISCHANNELS
       // <nick> :*( ( "@" / "+" ) <channel> " " )
       // XXX update UI with voice or operator status
     },
@@ -565,81 +569,81 @@ ircParser = {
     /*
      * LIST
      */
-    "321": function(message) { // RPL_LISTSTART
+    "321": function(aMessage) { // RPL_LISTSTART
       // Obsolete. Not used.
     },
-    "322": function(message) { // RPL_LIST
+    "322": function(aMessage) { // RPL_LIST
       // <channel> <# visible> :<topic>
       // XXX parse this for # users & topic
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params.join(" "),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params.join(" "),
         {system: true}
       );
     },
-    "323": function(message) { // RPL_LISTEND
+    "323": function(aMessage) { // RPL_LISTEND
       // :End of LIST
     },
 
     /*
      * Channel functions
      */
-    "324": function(message) { // RPL_CHANNELMODEIS
+    "324": function(aMessage) { // RPL_CHANNELMODEIS
       // <channel> <mode> <mode params>
       // XXX parse this and have the UI respond accordingly
     },
-    "325": function(message) { // RPL_UNIQOPIS
+    "325": function(aMessage) { // RPL_UNIQOPIS
       // <channel> <nickname>
       // XXX parse this and have the UI respond accordingly
     },
-    "331": function(message) { // RPL_NOTOPIC
+    "331": function(aMessage) { // RPL_NOTOPIC
       // <channel> :No topic is set
       // XXX Do nothing I think?
     },
-    "332": function(message) { // RPL_TOPIC
+    "332": function(aMessage) { // RPL_TOPIC
       // <channel> :topic
       // Update the topic UI
-      let conversation = this._getConversation(message.params[1]);
-      conversation.setTopic(message.params[2]);
+      let conversation = this._getConversation(aMessage.params[1]);
+      conversation.setTopic(aMessage.params[2]);
       // Send the message
       var topicMessage = "The topic for " + conversation.name + " is : " +
-                 message.params[2];
+                         aMessage.params[2];
       conversation.writeMessage(null, topicMessage, {system: true});
     },
-    "333": function(message) { // XXX nonstandard
+    "333": function(aMessage) { // XXX nonstandard
     },
 
     /*
      * Invitations
      */
-    "341": function(message) { // RPL_INVITING
+    "341": function(aMessage) { // RPL_INVITING
       // <channel> <nick>
       // XXX invite successfully sent? Display this?
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[1] + " was successfully invited to " +
-        message.params[0] + "."
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[1] + " was successfully invited to " +
+        aMessage.params[0] + "."
       );
     },
-    "342": function(message) { // RPL_SUMMONING
+    "342": function(aMessage) { // RPL_SUMMONING
       // <user> :Summoning user to IRC
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[0] + " was summoned."
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[0] + " was summoned."
       );
     },
-    "346": function(message) { // RPL_INVITELIST
+    "346": function(aMessage) { // RPL_INVITELIST
       // <chanel> <invitemask>
       // XXX what do we do?
     },
-    "347": function(message) { // RPL_ENDOFINVITELIST
+    "347": function(aMessage) { // RPL_ENDOFINVITELIST
       // <channel> :End of channel invite list
       // XXX what do we do?
     },
-    "348": function(message) { // RPL_EXCEPTLIST
+    "348": function(aMessage) { // RPL_EXCEPTLIST
       // <channel> <exceptionmask>
     },
-    "349": function(message) { // RPL_ENDOFEXCEPTIONLIST
+    "349": function(aMessage) { // RPL_ENDOFEXCEPTIONLIST
       // <channel> :End of channel exception list
       // XXX update UI?
     },
@@ -647,15 +651,15 @@ ircParser = {
     /*
      * Version
      */
-    "351": function(message) { // RPL_VERSION
+    "351": function(aMessage) { // RPL_VERSION
       // <version>.<debuglevel> <server> :<comments>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
 
     /*
      * WHO
      */
-    "352": function(message) { // RPL_WHOREPLY
+    "352": function(aMessage) { // RPL_WHOREPLY
       // <channel> <user> <host> <server> <nick> ( "H" / "G" ) ["*"] [ ("@" / "+" ) ] :<hopcount> <real name>
       // XXX
     },
@@ -663,11 +667,11 @@ ircParser = {
     /*
      * NAMREPLY
      */
-    "353": function(message) { // RPL_NAMREPLY
+    "353": function(aMessage) { // RPL_NAMREPLY
       // <target> ( "=" / "*" / "@" ) <channel> :[ "@" / "+" ] <nick> *( " " [ "@" / "+" ] <nick> )
       // XXX Keep if this is secret (@), private (*) or public (=)
-      var conversation = this._getConversation(message.params[2]);
-      message.params[3].trim().split(" ").forEach(function(nickname) {
+      var conversation = this._getConversation(aMessage.params[2]);
+      aMessage.params[3].trim().split(" ").forEach(function(nickname) {
         conversation._getParticipant(nickname);
         //if (!this._buddies[nickname]) // XXX Needs to be put to lower case and ignore the @+ at the beginning
         //  this._buddies[nickname] = {}; // XXX new Buddy()?
@@ -677,13 +681,13 @@ ircParser = {
     /*
      *
      */
-    "361": function(message) { // RPL_KILLDONE
+    "361": function(aMessage) { // RPL_KILLDONE
       // XXX
     },
-    "362": function(message) { // RPL_CLOSING
+    "362": function(aMessage) { // RPL_CLOSING
       // XXX
     },
-    "363": function(message) { // RPL_CLOSEEND
+    "363": function(aMessage) { // RPL_CLOSEEND
       // Non-generic
       // XXX
     },
@@ -691,11 +695,11 @@ ircParser = {
     /*
      * Links
      */
-    "364": function(message) { // RPL_LINKS
+    "364": function(aMessage) { // RPL_LINKS
       // <mask> <server> :<hopcount> <server info>
       // XXX
     },
-    "365": function(message) { // RPL_ENDOFLINKS
+    "365": function(aMessage) { // RPL_ENDOFLINKS
       // <mask> :End of LINKS list
       // XXX
     },
@@ -703,10 +707,10 @@ ircParser = {
     /*
      * Names
      */
-    "366": function(message) { // RPL_ENDOFNAMES
+    "366": function(aMessage) { // RPL_ENDOFNAMES
       // <target> <channel> :End of NAMES list
       // Notify of only the ADDED participants
-      let conversation = this._getConversation(message.params[1]);
+      let conversation = this._getConversation(aMessage.params[1]);
       conversation.notifyObservers(conversation.getParticipants(),
                                    "chat-buddy-add");
     },
@@ -714,15 +718,15 @@ ircParser = {
     /*
      * End of a bunch of lists
      */
-    "367": function(message) { // RPL_BANLIST
+    "367": function(aMessage) { // RPL_BANLIST
       // <channel> <banmask>
       // XXX
     },
-    "368": function(message) { // RPL_ENDOFBANLIST
+    "368": function(aMessage) { // RPL_ENDOFBANLIST
       // <channel> :End of channel ban list
       // XXX
     },
-    "369": function(message) { // RPL_ENDOFWHOWAS
+    "369": function(aMessage) { // RPL_ENDOFWHOWAS
       // <nick> :End of WHOWAS
       // XXX
     },
@@ -730,37 +734,37 @@ ircParser = {
     /*
      * Server info
      */
-    "371": function(message) { // RPL_INFO
+    "371": function(aMessage) { // RPL_INFO
       // :<string>
-      serverMessage.call(this, message);
+      serverMessage.call(this, aMessage);
     },
-    "372": function(message) { // RPL_MOTD
+    "372": function(aMessage) { // RPL_MOTD
       // :- <text>
-      if (message.params[1].length > 2) { // Ignore empty messages
-        this._getConversation(message.source).writeMessage(
-          message.source,
-          message.params[1].slice(2),
+      if (aMessage.params[1].length > 2) { // Ignore empty messages
+        this._getConversation(aMessage.source).writeMessage(
+          aMessage.source,
+          aMessage.params[1].slice(2),
           {incoming: true}
         );
       }
     },
-    "373": function(message) { // RPL_INFOSTART
+    "373": function(aMessage) { // RPL_INFOSTART
       // Non-generic
       // XXX
     },
-    "374": function(message) { // RPL_ENDOFINFO
+    "374": function(aMessage) { // RPL_ENDOFINFO
       // :End of INFO list
       // XXX
     },
-    "375": function(message) { // RPL_MOTDSTART
+    "375": function(aMessage) { // RPL_MOTDSTART
       // :- <server> Message of the day -
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[1].slice(2,-2),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[1].slice(2,-2),
         {incoming: true}
       );
     },
-    "376": function(message) { // RPL_ENDOFMOTD
+    "376": function(aMessage) { // RPL_ENDOFMOTD
       // :End of MOTD command
       // XXX ?
     },
@@ -768,24 +772,24 @@ ircParser = {
     /*
      * OPER
      */
-    "381": function(message) { // RPL_YOUREOPER
+    "381": function(aMessage) { // RPL_YOUREOPER
       // :You are now an IRC operator
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[0],
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[0],
         {system: true}
       );
       // XXX update UI accordingly to show oper status
     },
-    "382": function(message) { // RPL_REHASHING
+    "382": function(aMessage) { // RPL_REHASHING
       // <config file> :Rehashing
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params.join(" "),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params.join(" "),
         {system: true}
       );
     },
-    "383": function(message) { // RPL_YOURESERVICE
+    "383": function(aMessage) { // RPL_YOURESERVICE
       // You are service <servicename>
       // XXX Could this ever happen?
     },
@@ -793,279 +797,279 @@ ircParser = {
     /*
      * Info
      */
-    "384": function(message) { // RPL_MYPORTIS
+    "384": function(aMessage) { // RPL_MYPORTIS
       // Non-generic
     },
-    "391": function(message) { // RPL_TIME
+    "391": function(aMessage) { // RPL_TIME
       // <server> :<string showing server's local time>
       // XXX parse date string & store or just show it?
     },
-    "392": function(message) { // RPL_USERSSTART
+    "392": function(aMessage) { // RPL_USERSSTART
       // :UserID   Terminal  Host
       // XXX
     },
-    "393": function(message) { // RPL_USERS
+    "393": function(aMessage) { // RPL_USERS
       // :<username> <ttyline> <hostname>
       // XXX store into buddy list
     },
-    "394": function(message) { // RPL_ENDOFUSERS
+    "394": function(aMessage) { // RPL_ENDOFUSERS
       // :End of users
       // XXX Notify observers of the buddy list
     },
-    "395": function(message) { // RPL_NOUSERS
+    "395": function(aMessage) { // RPL_NOUSERS
       // :Nobody logged in
       // XXX clear buddy list
     },
 
       // Error messages, Implement Section 5.2 of RFC 2812
-    "401": function(message) { // ERR_NOSUCHNICK
+    "401": function(aMessage) { // ERR_NOSUCHNICK
       // <nickname> :No such nick/channel
       // XXX
     },
-    "402": function(message) { // ERR_NOSUCHSERVER
+    "402": function(aMessage) { // ERR_NOSUCHSERVER
       // <server name> :No such server
       // XXX
     },
-    "403": function(message) { // ERR_NOSUCHCHANNEL
+    "403": function(aMessage) { // ERR_NOSUCHCHANNEL
       // <channel name> :No such channel
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[1] + ": " + message.params[0],
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[1] + ": " + aMessage.params[0],
         {error: true}
       );
     },
-    "404": function(message) { // ERR_CANNONTSENDTOCHAN
+    "404": function(aMessage) { // ERR_CANNONTSENDTOCHAN
       // <channel name> :Cannot send to channel
       // XXX handle that the channel didn't receive the message
     },
-    "405": function(message) { // ERR_TOOMANYCHANNELS
+    "405": function(aMessage) { // ERR_TOOMANYCHANNELS
       // <channel name> :You have joined too many channels
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params[1] + ": function(message) { " + message.params[0],
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params[1] + ": function(aMessage) { " + aMessage.params[0],
         {error: true}
       );
     },
-    "406": function(message) { // ERR_WASNOSUCHNICK
+    "406": function(aMessage) { // ERR_WASNOSUCHNICK
       // <nickname> :There was no such nickname
       // XXX Error saying the nick never existed
     },
-    "407": function(message) { // ERR_TOOMANYTARGETS
+    "407": function(aMessage) { // ERR_TOOMANYTARGETS
       // <target> :<error code> recipients. <abord message>
       // XXX
     },
-    "408": function(message) { // ERR_NOSUCHSERVICE
+    "408": function(aMessage) { // ERR_NOSUCHSERVICE
       // <service name> :No such service
       // XXX
     },
-    "409": function(message) { // ERR_NOORIGIN
+    "409": function(aMessage) { // ERR_NOORIGIN
       // :No origin specified
       // XXX failed PING/PONG message, this should never occur
     },
-    "411": function(message) { // ERR_NORECIPIENT
+    "411": function(aMessage) { // ERR_NORECIPIENT
       // :No recipient given (<command>)
       // XXX This should never happen.
     },
-    "412": function(message) { // ERR_NOTEXTTOSEND
+    "412": function(aMessage) { // ERR_NOTEXTTOSEND
       // :No text to send
       // XXX this shouldn't happen?
     },
-    "413": function(message) { // ERR_NOTOPLEVEL
+    "413": function(aMessage) { // ERR_NOTOPLEVEL
       // <mask> :No toplevel domain specified
       // XXX
     },
-    "414": function(message) { // ERR_WILDTOPLEVEL
+    "414": function(aMessage) { // ERR_WILDTOPLEVEL
       // <mask> :Wildcard in toplevel domain
       // XXX
     },
-    "415": function(message) { // ERR_BADMASK
+    "415": function(aMessage) { // ERR_BADMASK
       // <mask> :Bad Server/host mask
       // XXX
     },
-    "421": function(message) { // ERR_UNKNOWNCOMMAND
+    "421": function(aMessage) { // ERR_UNKNOWNCOMMAND
       // <command> :Unknown command
       // XXX This shouldn't occur
     },
-    "422": function(message) { // ERR_NOMOTD
+    "422": function(aMessage) { // ERR_NOMOTD
       // :MOTD File is missing
       // XXX
     },
-    "423": function(message) { // ERR_NOADMININFO
+    "423": function(aMessage) { // ERR_NOADMININFO
       // <server> :No administrative info available
       // XXX
     },
-    "424": function(message) { // ERR_FILEERROR
+    "424": function(aMessage) { // ERR_FILEERROR
       // :File error doing <file op> on <file>
       // XXX
     },
-    "431": function(message) { // ERR_NONICKNAMEGIVEN
+    "431": function(aMessage) { // ERR_NONICKNAMEGIVEN
       // :No nickname given
       // XXX
     },
-    "432": function(message) { // ERR_ERRONEUSNICKNAME
+    "432": function(aMessage) { // ERR_ERRONEUSNICKNAME
       // <nick> :Erroneous nickname
       // XXX Prompt user for new nick? Autoclean characters?
     },
-    "433": function(message) { // ERR_NICKNAMEINUSE
+    "433": function(aMessage) { // ERR_NICKNAMEINUSE
       // <nick> :Nickname is already in use
       // XXX should be the same as below
     },
-    "436": function(message) { // ERR_NICKCOLLISION
+    "436": function(aMessage) { // ERR_NICKCOLLISION
       // <nick> :Nickname collision KILL from <user>@<host>
       // Take the returned nick and increment the last character
-      this._nickname = message.params[1].slice(0, -1) +
+      this._nickname = aMessage.params[1].slice(0, -1) +
         String.fromCharCode(
-        message.params[1].charCodeAt(message.params[1].length - 1) + 1
+        aMessage.params[1].charCodeAt(aMessage.params[1].length - 1) + 1
         );
       this._sendMessage("NICK", [this._nickname]); // Nick message
       // XXX inform user?
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        "Changing nick to " + this._nickname + " [<i>" + message.params[2] +
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        "Changing nick to " + this._nickname + " [<i>" + aMessage.params[2] +
         "</i>]."
       );
     },
-    "437": function(message) { // ERR_UNAVAILRESOURCE
+    "437": function(aMessage) { // ERR_UNAVAILRESOURCE
       // <nick/channel> :Nick/channel is temporarily unavailable
       // XXX
     },
-    "441": function(message) { // ERR_USERNOTINCHANNEL
+    "441": function(aMessage) { // ERR_USERNOTINCHANNEL
       // <nick> <channel> :They aren't on that channel
       // XXX
     },
-    "442": function(message) { // ERR_NOTONCHANNEL
+    "442": function(aMessage) { // ERR_NOTONCHANNEL
       // <channel> :You're not on that channel
       // XXX
     },
-    "443": function(message) { // ERR_USERONCHANNEL
+    "443": function(aMessage) { // ERR_USERONCHANNEL
       // <user> <channel> :is already on channel
       // XXX
     },
-    "444": function(message) { // ERR_NOLOGIN
+    "444": function(aMessage) { // ERR_NOLOGIN
       // <user> :User not logged in
       // XXX
     },
-    "445": function(message) { // ERR_SUMMONDISABLED
+    "445": function(aMessage) { // ERR_SUMMONDISABLED
       // :SUMMON has been disabled
       // XXX keep track of this and disable UI associated?
     },
-    "446": function(message) { // ERR_USERSDISABLED
+    "446": function(aMessage) { // ERR_USERSDISABLED
       // :USERS has been disabled
       // XXX Disabled all buddy list etc.
     },
-    "451": function(message) { // ERR_NOTREGISTERED
+    "451": function(aMessage) { // ERR_NOTREGISTERED
       // :You have not registered
       // XXX We shouldn't get this?
     },
-    "461": function(message) { // ERR_NEEDMOREPARAMS
+    "461": function(aMessage) { // ERR_NEEDMOREPARAMS
       // <command> :Not enough parameters
       // XXX
     },
-    "462": function(message) { // ERR_ALREADYREGISTERED
+    "462": function(aMessage) { // ERR_ALREADYREGISTERED
       // :Unauthorized command (already registered)
       // XXX
     },
-    "463": function(message) { // ERR_NOPERMFORHOST
+    "463": function(aMessage) { // ERR_NOPERMFORHOST
       // :Your host isn't among the privileged
       // XXX
     },
-    "464": function(message) { // ERR_PASSWDMISMATCH
+    "464": function(aMessage) { // ERR_PASSWDMISMATCH
       // :Password incorrect
       // XXX prompt user for new password
     },
-    "465": function(message) { // ERR_YOUREBANEDCREEP
+    "465": function(aMessage) { // ERR_YOUREBANEDCREEP
       // :You are banned from this server
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params.join(" "),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params.join(" "),
         {error: true}
       );
       this.disconnect(); // XXX should show error in account manager
     },
-    "466": function(message) { // ERR_YOUWILLBEBANNED
+    "466": function(aMessage) { // ERR_YOUWILLBEBANNED
       // :You are banned from this server
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params.join(" "),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params.join(" "),
         {error: true}
       );
       this.disconnect(); // XXX should show error in account manager
     },
-    "467": function(message) { // ERR_KEYSET
+    "467": function(aMessage) { // ERR_KEYSET
       // <channel> :Channel key already set
       // XXX
     },
-    "471": function(message) { // ERR_CHANNELISFULL
+    "471": function(aMessage) { // ERR_CHANNELISFULL
       // <channel> :Cannot join channel (+l)
       // XXX
     },
-    "472": function(message) { // ERR_UNKNOWNMODE
+    "472": function(aMessage) { // ERR_UNKNOWNMODE
       // <char> :is unknown mode char to me for <channel>
       // XXX
     },
-    "473": function(message) { // ERR_INVITEONLYCHAN
+    "473": function(aMessage) { // ERR_INVITEONLYCHAN
       // <channel> :Cannot join channel (+i)
       // XXX
     },
-    "474": function(message) { // ERR_BANNEDFROMCHAN
+    "474": function(aMessage) { // ERR_BANNEDFROMCHAN
       // <channel> :Cannot join channel (+b)
       // XXX
     },
-    "475": function(message) { // ERR_BADCHANNELKEY
+    "475": function(aMessage) { // ERR_BADCHANNELKEY
       // <channel> :Cannot join channel (+k)
       // XXX need to inform user
     },
-    "476": function(message) { // ERR_BADCHANMASK
+    "476": function(aMessage) { // ERR_BADCHANMASK
       // <channel> :Bad Channel Mask
       // XXX
     },
-    "477": function(message) { // ERR_NOCHANMODES
+    "477": function(aMessage) { // ERR_NOCHANMODES
       // <channel> :Channel doesn't support modes
       // XXX
     },
-    "478": function(message) { // ERR_BANLISTFULL
+    "478": function(aMessage) { // ERR_BANLISTFULL
       // <channel> <char> :Channel list is full
       // XXX
     },
-    "481": function(message) { // ERR_NOPRIVILEGES
+    "481": function(aMessage) { // ERR_NOPRIVILEGES
       // :Permission Denied- You're not an IRC operator
       // XXX ask to auth?
     },
-    "482": function(message) { // ERR_CHANOPRIVSNEEDED
+    "482": function(aMessage) { // ERR_CHANOPRIVSNEEDED
       // <channel> :You're not channel operator
       // XXX ask for auth?
     },
-    "483": function(message) { // ERR_CANTKILLSERVER
+    "483": function(aMessage) { // ERR_CANTKILLSERVER
       // :You can't kill a server!
       // XXX?
     },
-    "484": function(message) { // ERR_RESTRICTED
+    "484": function(aMessage) { // ERR_RESTRICTED
       // :Your connection is restricted!
       // Indicates user mode +r
       // XXX
     },
-    "485": function(message) { // ERR_UNIQOPPRIVSNEEDED
+    "485": function(aMessage) { // ERR_UNIQOPPRIVSNEEDED
       // :You're not the original channel operator
       // XXX ask to auth?
       // XXX
     },
-    "491": function(message) { // ERR_NOOPERHOST
+    "491": function(aMessage) { // ERR_NOOPERHOST
       // :No O-lines for your host
       // XXX
     },
-    "492": function(message) { //ERR_NOSERVICEHOST
+    "492": function(aMessage) { //ERR_NOSERVICEHOST
       // Non-generic
       // XXX
     },
-    "501": function(message) { // ERR_UMODEUNKNOWNFLAGS
+    "501": function(aMessage) { // ERR_UMODEUNKNOWNFLAGS
       // :Unknown MODE flag
       // XXX could this happen?
     },
-    "502": function(message) { // ERR_USERSDONTMATCH
+    "502": function(aMessage) { // ERR_USERSDONTMATCH
       // :Cannot change mode for other users
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.params.join(" "),
+      this._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.params.join(" "),
         {error: true}
       );
     }
