@@ -552,30 +552,6 @@ const GenericConvChatBuddyPrototype = {
   typing: false
 };
 
-function purpleProxyInfo(type) {
-  this.type = type;
-}
-purpleProxyInfo.prototype = {
-  get classDescription() "Preference for Account Options",
-  getInterfaces: function(countRef) {
-    var interfaces = [Ci.nsIClassInfo, Ci.nsISupports, Ci.purpleIPref];
-    countRef.value = interfaces.length;
-    return interfaces;
-  },
-  getHelperForLanguage: function(language) null,
-  implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: 0,
-  QueryInterface: XPCOMUtils.generateQI([Ci.purpleIPref, Ci.nsIClassInfo])
-};
-function purpleProxy(host, port, username, password) {
-  this.host = host;
-  this.port = port;
-  this.username = username ? username : "";
-  this.password = password ? password : "";
-}
-purpleProxy.prototype = purpleProxyInfo.prototype;
-
-
 function purplePref(aName, aLabel, aType, aDefaultValue, aMasked) {
   this.name = aName; // Preference name
   this.label = aLabel; // Text to display

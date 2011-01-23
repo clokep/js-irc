@@ -208,8 +208,6 @@ Account.prototype = {
   _pump: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
-  proxyInfo: new purpleProxyInfo(-1), // XXX make this reasonable
-
   // Data listener object
   onStartRequest: function(aRequest, aContext) { },
   onStopRequest: function(aRequest, aContext, aStatus) { },
@@ -438,7 +436,6 @@ Protocol.prototype = {
     "username": {label: "Username", default: ""},
     "realname": {label: "Real name", default: ""},
     //"quitmsg": {label: "Quit message", default: ""}, // XXX Unused
-    "test": {label: "Test", default: {"value one": "label one", "value two": "label two"}},
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
