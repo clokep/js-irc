@@ -249,7 +249,7 @@ const GenericAccountPrototype = {
   get password() this._base.password,
   get rememberPassword() this._base.rememberPassword,
   get alias() this._base.alias,
-  get proxyInfo() this._base.proxyInfo,
+  get proxyInfo() { throw Components.results.NS_ERROR_NOT_IMPLEMENTED; },
   get connectionStateMsg() this._base.connectionStateMsg,
   get connectionErrorReason() this._base.connectionErrorReason,
   get reconnectAttempt() this._base.reconnectAttempt,
@@ -276,7 +276,7 @@ const GenericAccountPrototype = {
   set password(val) { this._base.password = val; },
   set rememberPassword(val) { this._base.rememberPassword = val; },
   set alias(val) { this._base.alias = val; },
-  set proxyInfo(val) { this._base.proxyInfo = val; }
+  set proxyInfo(val) { throw Components.results.NS_ERROR_NOT_IMPLEMENTED; }
 };
 
 
@@ -707,6 +707,7 @@ const GenericProtocolPrototype = {
   get usePointSize() true,
   get registerNoScreenName() false,
   get slashCommandsNative() false,
+  get usePurpleProxy() false,
 
   get classDescription() this.name + " Protocol",
   get contractID() "@instantbird.org/purple/" + this.normalizedName + ";1"
