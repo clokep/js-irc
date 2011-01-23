@@ -46,7 +46,6 @@ var EXPORTED_SYMBOLS = [
   "GenericConvIMPrototype",
   "GenericConvChatPrototype",
   "GenericConvChatBuddyPrototype",
-  "purpleProxyInfo",
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
   "Message",
