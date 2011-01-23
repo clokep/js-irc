@@ -473,9 +473,6 @@ const GenericConversationPrototype = {
   close: function() { },
 
   writeMessage: function(aWho, aText, aProperties) {
-    // XXX use username split here? Do we care about aliases?
-    if (aText.indexOf(this.account.name) != -1)
-      aProperties.containsNick = true;
     (new Message(aWho, aText, aProperties)).conversation = this;
   },
 
@@ -531,6 +528,17 @@ const GenericConvChatPrototype = {
       Object.keys(this._participants)
             .map(function(key) this._participants[key], this)
     );
+  },
+
+  writeMessage: function(aWho, aText, aProperties) {
+    // XXX use username split here? Do we care about aliases?
+    this.nick = "clokep_js";
+    Components.utils.reportError(aText.indexOf(this.nick));
+    Components.utils.reportError(JSON.stringify(aProperties));
+    if (aText.indexOf(this.nick) != -1)
+      aProperties.containsNick = true;
+    Components.utils.reportError(JSON.stringify(aProperties));
+    this.__proto__.writeMessage(aWho, aText, aProperties);
   }
 };
 
