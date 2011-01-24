@@ -258,6 +258,7 @@ const GenericAccountPrototype = {
       defaultFieldValues[fieldName] = this.chatRoomFields[fieldName].default;
     return new ChatRoomFieldValues(defaultFieldValues);
   },
+
   getPref: function (aName, aType)
     this.prefs.prefHasUserValue(aName) ?
       this.prefs["get" + aType + "Pref"](aName) :
@@ -670,6 +671,7 @@ const GenericProtocolPrototype = {
     return new nsSimpleEnumerator(
       this.usernameSplits.map(function(split) new UsernameSplit(split)));
   },
+
   // NS_ERROR_XPC_JSOBJECT_HAS_NO_FUNCTION_NAMED errors are too noisy
   get usernameEmptyText() "",
   accountExists: function() false, //FIXME
