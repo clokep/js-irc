@@ -528,14 +528,10 @@ const GenericConvChatPrototype = {
   },
 
   writeMessage: function(aWho, aText, aProperties) {
-    // XXX use username split here? Do we care about aliases?
-    this.nick = "clokep_js";
-    Components.utils.reportError(aText.indexOf(this.nick));
-    Components.utils.reportError(JSON.stringify(aProperties));
     if (aText.indexOf(this.nick) != -1)
       aProperties.containsNick = true;
-    Components.utils.reportError(JSON.stringify(aProperties));
-    this.__proto__.writeMessage(aWho, aText, aProperties);
+    (new Message(aWho, aText, aProperties)).conversation = this;
+    //this.__proto__.writeMessage(aWho, aText, aProperties);
   }
 };
 
