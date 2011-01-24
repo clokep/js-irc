@@ -154,7 +154,7 @@ XPCOMUtils.defineLazyGetter(this, "AccountBase", function()
 );
 
 const ForwardAccountPrototype = {
-  __proto__: ClassInfo(["purpleIAccount", "nsIWeakReference"], "generic account object"),
+  __proto__: ClassInfo(["purpleIAccount"], "generic account object"),
   _init: function _init(aProtoInstance, aBase) {
     this._base = aBase;
     this._base.concreteAccount = this;
