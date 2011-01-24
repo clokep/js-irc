@@ -508,15 +508,18 @@ const GenericConvChatPrototype = {
   _interfaces: [Ci.purpleIConversation, Ci.purpleIConvChat],
   classDescription: "generic ConvChat object",
 
+  _nick: null,
   _topic: null,
   _topicSetter: null,
 
-  _init: function(aAccount, aName) {
+  _init: function(aAccount, aName, aNick) {
     this._participants = {};
-    GenericConversationPrototype._init.apply(this, arguments);
+    this._nick = aNick;
+    GenericConversationPrototype._init.call(this, aAccount, aName);
   },
 
   get isChat() true,
+  get nick() this._nick,
   get topic() this._topic,
   get topicSetter() this._topicSetter,
   get left() false,
@@ -528,22 +531,9 @@ const GenericConvChatPrototype = {
     );
   },
 
-  writeMessage: function convChatWriteMessage(aWho, aText, aProperties) {
-    // Check if the message contains our nick
-    aProperties.containsNick = (aText.indexOf(this.nick) != -1);
-
-    // Skips everything above you (if the prototype chain was extended)
-    let proto = this;
-    while (proto.writeMessage != convChatWriteMessage)
-      proto = proto.__proto__;
-
-    // Skips yourself (if an extension of the prototype chain did not supply
-    // writeMessage)
-    while (proto.writeMessage == convChatWriteMessage)
-      proto = proto.__proto__;
-
-    // proto is one past you on the prototype chain, so call writeMessage
-    proto.writeMessage.call(this, aWho, aText, aProperties);
+  writeMessage: function (aWho, aText, aProperties) {
+    aProperties.containsNick = aText.indexOf(this.nick) != -1;
+    GenericConversationPrototype.writeMessage.apply(this, arguments);
   }
 };
 
