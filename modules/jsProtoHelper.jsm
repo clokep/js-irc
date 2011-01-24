@@ -528,11 +528,22 @@ const GenericConvChatPrototype = {
     );
   },
 
-  writeMessage: function(aWho, aText, aProperties) {
-    if (aText.indexOf(this.nick) != -1)
-      aProperties.containsNick = true;
-    (new Message(aWho, aText, aProperties)).conversation = this;
-    //this.__proto__.writeMessage(aWho, aText, aProperties);
+  writeMessage: function convChatWriteMessage(aWho, aText, aProperties) {
+    // Check if the message contains our nick
+    aProperties.containsNick = (aText.indexOf(this.nick) != -1);
+
+    // Skips everything above you (if the prototype chain was extended)
+    let proto = this;
+    while (proto.writeMessage != convChatWriteMessage)
+      proto = proto.__proto__;
+
+    // Skips yourself (if an extension of the prototype chain did not supply
+    // writeMessage)
+    while (proto.writeMessage == convChatWriteMessage)
+      proto = proto.__proto__;
+
+    // proto is one past you on the prototype chain, so call writeMessage
+    proto.writeMessage.call(this, aWho, aText, aProperties);
   }
 };
 
