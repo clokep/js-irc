@@ -78,8 +78,8 @@ function normalize(aStr, aRemoveStatus) {
                            .replace("\\", "|").replace("~", "^");
 }
 
-function Chat(aAccount, aName) {
-  this._init(aAccount, aName);
+function Chat(aAccount, aName, aNick) {
+  this._init(aAccount, aName, aNick);
 }
 Chat.prototype = {
   sendMsg: function(aMessage) {
@@ -368,7 +368,7 @@ Account.prototype = {
     if (!this._conversations.hasOwnProperty(normalizedName)) {
       let constructor = /^[&#+!]/.test(normalizedName) ? Chat : Conversation;
       this._conversations[normalizedName] =
-        new constructor(this, aConversationName);
+        new constructor(this, aConversationName, this._nickname);
     }
     return this._conversations[normalizedName];
   },
