@@ -93,7 +93,7 @@ Chat.prototype = {
     }
   },
 
-  close: function() {
+  unInit: function() {
     this.account._sendMessage("PART", [this.name]);
     this.account._removeConversation(this.name);
   },
@@ -178,7 +178,7 @@ Conversation.prototype = {
                       aMessage,
                       {outgoing: true});
   },
-  close: function() {
+  unInit: function() {
     this.account._removeConversation(this.name);
   }
 };
