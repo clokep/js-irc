@@ -49,7 +49,8 @@ var EXPORTED_SYMBOLS = [
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
   "Message",
-  "doXHRequest"
+  "doXHRequest",
+  "Socket"
 ];
 
 /*
@@ -797,4 +798,85 @@ function doXHRequest(aUrl, aHeaders, aPOSTData, aOnLoad, aOnError, aThis) {
   LOG("sending request to " + aUrl + " (POSTData = " + POSTData + ")");
   xhr.send(POSTData);
   return xhr;
+}
+
+function Socket(aHostname, aPort, aSSL, aProxy, aSeparator) {
+  this._hostname = aHostname;
+  this._port = aPort;
+  this._ssl = !!aSSL;
+  this._proxy = aProxy;
+
+  this._separator = aSeparator;
+
+  this._init();
+}
+Socket.prototype = {
+  _socketTransport: null,
+  _inputStream: null,
+  _outputStream: null,
+  _scritableInputStream: null,
+  _inputStreamBuffer: "",
+  _pump: null,
+
+  _init: function() {
+    let socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
+                     .getService(Ci.nsISocketTransportService);
+    this._socketTransport = socketTS.createTransport(this._ssl ? ["ssl"] : null, // Socket type
+                                                     this._ssl ? 1 : 0, // Length of socket types
+                                                     this._hostname, // Host
+                                                     this._port, // Port
+                                                     this._proxy); // XXX Proxy info
+    // XXX Add a socketTransport listener so we can give better info to this.base.connecting()
+
+    this._outputStream = this._socketTransport.openOutputStream(0, // flags
+                                                                0, // Use default segment size
+                                                                0); // Use default segment count
+    this._inputStream = this._socketTransport.openInputStream(0, // flags
+                                                              0, // Use default segment size
+                                                              0); // Use default segment count
+
+    this._scriptableInputStream = Cc["@mozilla.org/scriptableinputstream;1"]
+                                    .createInstance(Ci.nsIScriptableInputStream);
+    this._scriptableInputStream.init(this._inputStream);
+
+    this._pump = Cc["@mozilla.org/network/input-stream-pump;1"]
+                   .createInstance(Ci.nsIInputStreamPump);
+    this._pump.init(this._inputStream, // Data to read
+                    -1, // Current offset
+                    -1, // Read all data
+                    0, // Use default segment size
+                    0, // Use default segment length
+                    false); // Do not close when done
+  },
+  // Start reading from the socket
+  _open: function(aDataHandlerCallback, aDataHandlerThis) {
+    this._dataHandlerCallback = aDataHandlerCallback;
+    this._dataHandlerThis = aDataHandlerThis;
+    this._pump.asyncRead(this, null); // Use this as the data listener object
+  },
+  // End reading from the socket
+  _close: function() {
+    this._outputStream.close();
+    this._inputStream.close();
+    this._socketTransport.close(Components.results.NS_OK);
+  },
+  // Send data over the socket
+  _send: function(aData) {
+    this._outputStream.write(aData, aData.length);
+  },
+
+  // Data listener object
+  onStartRequest: function(aRequest, aContext) { },
+  onStopRequest: function(aRequest, aContext, aStatus) { },
+  onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
+    let data =
+      this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
+    data = data.split(this._separator);
+
+    // Store the (possible) incomplete part
+    this._inputStreamBuffer = data.pop();
+
+    for each (let singleData in data)
+      this._dataHandlerCallback.call(this._dataHandlerThis, singleData);
+  }
 }

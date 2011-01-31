@@ -200,28 +200,8 @@ function Account(aProtoInstance, aKey, aName) {
   this._realname = this.getString("realname");
 }
 Account.prototype = {
-  _socketTransport: null,
-  _inputStream: null,
-  _outputStream: null,
-  _scritableInputStream: null,
-  _inputStreamBuffer: "",
-  _pump: null,
+  _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
-
-  // Data listener object
-  onStartRequest: function(aRequest, aContext) { },
-  onStopRequest: function(aRequest, aContext, aStatus) { },
-  onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
-    let data =
-      this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
-    data = data.split(/\r\n/);
-
-    // Store the (possible) incomplete part
-    this._inputStreamBuffer = data.pop();
-
-    for each (let message in data)
-      this._handleMessage(message);
-  },
 
   statusChanged: function(aStatusType, aMsg) {
     dump(aStatusType + "\r\n<" + aMsg + ">");
@@ -235,35 +215,9 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    var socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
-                     .getService(Ci.nsISocketTransportService);
-    this._socketTransport = socketTS.createTransport(this._ssl ? ["ssl"] : null, // Socket type
-                                                     this._ssl ? 1 : 0, // Length of socket types
-                                                     this._server, // Host
-                                                     this._port, // Port
-                                                     null); // XXX Proxy info
-    // XXX Add a socketTransport listener so we can give better info to this.base.connecting()
-
-    this._outputStream = this._socketTransport.openOutputStream(0, // flags
-                                                                0, // Use default segment size
-                                                                0); // Use default segment count
-    this._inputStream = this._socketTransport.openInputStream(0, // flags
-                                                              0, // Use default segment size
-                                                              0); // Use default segment count
-
-    this._scriptableInputStream = Cc["@mozilla.org/scriptableinputstream;1"]
-                                    .createInstance(Ci.nsIScriptableInputStream);
-    this._scriptableInputStream.init(this._inputStream);
-
-    this._pump = Cc["@mozilla.org/network/input-stream-pump;1"]
-                   .createInstance(Ci.nsIInputStreamPump);
-    this._pump.init(this._inputStream, // Data to read
-                    -1, // Current offset
-                    -1, // Read all data
-                    0, // Use default segment size
-                    0, // Use default segment length
-                    false); // Do not close when done
-    this._pump.asyncRead(this, null);
+    // Create a new socket for the connection
+    this._socket = new Socket(this._server, this._port, this._ssl, null, /\r\n/);
+    this._socket._open(this._handleMessage, this); // Start reading
 
     this._connectionRegistration();
   },
@@ -393,7 +347,7 @@ Account.prototype = {
     // XXX should check length of aMessage?
     message += "\r\n";
     dump("Sending... <" + message.trim() + ">");
-    this._outputStream.write(message, message.length);
+    this._socket._send(message);
   },
 
   // Implement section 3.1 of RFC 2812
@@ -408,9 +362,8 @@ Account.prototype = {
   _disconnect: function() {
     // force QUIT and close the sockets
     this.base.disconnecting(this._base.NO_ERROR, "Closing sockets.");
-    this._outputStream.close();
-    this._inputStream.close();
-    this._socketTransport.close(Components.results.NS_OK);
+
+    this._socket._close();
 
     this.base.disconnected();
   }
