@@ -216,8 +216,9 @@ Account.prototype = {
     this.base.connecting();
 
     // Create a new socket for the connection
-    this._socket = new Socket(this._server, this._port, this._ssl, null, /\r\n/);
-    this._socket._open(this._handleMessage, this); // Start reading
+    this._socket = new Socket(this._server, this._port, this._ssl, null);
+    this._socket.open();
+    this._socket.read(/\r\n/, this._handleMessage, this); // Start reading
 
     this._connectionRegistration();
   },
@@ -228,10 +229,8 @@ Account.prototype = {
       // Let the server know we're going to disconnect
       this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
       this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
-    } else {
-      // We're not connected, just disconnect
-      this._disconnect();
-    }
+    } else
+      this._disconnect(); // We're not connected, just disconnect
   },
 
   createConversation: function(aName) this._getConversation(aName),
@@ -265,7 +264,7 @@ Account.prototype = {
    *   user............user's username
    *   host............user's hostname
    *   command.........the command being implemented
-   *   params..........list of parameters
+   *   params..........array of parameters
    */
   // See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
   _parseMessage: function(aData) {
@@ -347,7 +346,7 @@ Account.prototype = {
     // XXX should check length of aMessage?
     message += "\r\n";
     dump("Sending... <" + message.trim() + ">");
-    this._socket._send(message);
+    this._socket.write(message);
   },
 
   // Implement section 3.1 of RFC 2812
@@ -363,7 +362,7 @@ Account.prototype = {
     // force QUIT and close the sockets
     this.base.disconnecting(this._base.NO_ERROR, "Closing sockets.");
 
-    this._socket._close();
+    this._socket.close();
 
     this.base.disconnected();
   }
@@ -388,7 +387,7 @@ Protocol.prototype = {
     "autodetect_utf8": {label: "Auto-detect incoming UTF-8", default: false}, // XXX Unused
     "username": {label: "Username", default: ""},
     "realname": {label: "Real name", default: ""},
-    //"quitmsg": {label: "Quit message", default: ""}, // XXX Unused
+    "quitmsg": {label: "Quit message", default: ""}, // XXX Unused
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
