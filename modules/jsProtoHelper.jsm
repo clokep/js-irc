@@ -249,14 +249,16 @@ const GenericAccountPrototype = {
     return new nsSimpleEnumerator(fields);
   },
   getChatRoomDefaultFieldValues: function(aDefaultChatName) {
-    //FIXME: support aDefaultChatName once there's a use case in the UI.
-
     if (!this.chatRoomFields)
       return EmptyEnumerator;
 
     let defaultFieldValues = [];
     for (let fieldName in this.chatRoomFields)
       defaultFieldValues[fieldName] = this.chatRoomFields[fieldName].default;
+
+    if (aDefaultChatName && this.defaultChatNameField)
+      defaultFieldValues[this.defaultChatNameField] = aDefaultChatName;
+
     return new ChatRoomFieldValues(defaultFieldValues);
   },
 
@@ -847,12 +849,16 @@ Socket.prototype = {
                     0, // Use default segment length
                     false); // Do not close when done
   },
+  /*read: function(aLength) {
+    // read aLength bytes from the socket and return them.
+    // XXX What should it do when there's not enough available data?
+  },*/
   // Start reading from the socket
   read: function(aSeparator, aDataHandlerCallback, aDataHandlerThis) {
     this._separator = aSeparator;
     this._dataHandlerCallback = aDataHandlerCallback;
     this._dataHandlerThis = aDataHandlerThis;
-    this._pump.asyncRead(this._dataListener, null);
+    this._pump.asyncRead(this, null);
   },
   // End reading from the socket
   close: function() {
@@ -865,20 +871,25 @@ Socket.prototype = {
     this._outputStream.write(aData, aData.length);
   },
 
+  get available() 0, // XXX returns the length of available data
+
+  addListener: function(aListener, aDelimiter) {
+    // the aDelimiter parameter is optional. If not provided, the listener will
+    // be notified each time some more data is available.
+  },
+
   // Data listener object
-  _dataListener: {
-    onStartRequest: function(aRequest, aContext) { },
-    onStopRequest: function(aRequest, aContext, aStatus) { },
-    onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
-      let data =
-        this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
-      data = data.split(this._separator);
+  onStartRequest: function(aRequest, aContext) { },
+  onStopRequest: function(aRequest, aContext, aStatus) { },
+  onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
+    let data =
+      this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
+    data = data.split(this._separator);
 
-      // Store the (possible) incomplete part
-      this._inputStreamBuffer = data.pop();
+    // Store the (possible) incomplete part
+    this._inputStreamBuffer = data.pop();
 
-      for each (let singleData in data)
-        this._dataHandlerCallback.call(this._dataHandlerThis, singleData);
-    }
+    for each (let singleData in data)
+      this._dataHandlerCallback.call(this._dataHandlerThis, singleData);
   }
 }

@@ -173,6 +173,8 @@ function Conversation(aAccount, aName) {
 }
 Conversation.prototype = {
   sendMsg: function(aMessage) {
+    // XXX make private messages work
+    //this.account._sendMessage("PRIVMSG", [aMessage], this.name);
     this.account._sendMessage(aMessage);
     this.writeMessage(this.account._nickname,
                       aMessage,
@@ -249,6 +251,8 @@ Account.prototype = {
     "channel": {"label": "_Channel", "required": true},
     "password": {"label": "_Password", "isPassword": true}
   },
+
+  get defaultChatNameField() "channel",
 
   // Attributes
   get canJoinChat() true,
