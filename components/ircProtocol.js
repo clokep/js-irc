@@ -252,7 +252,9 @@ Account.prototype = {
     "password": {"label": "_Password", "isPassword": true}
   },
 
-  get defaultChatNameField() "channel",
+  parseDefaultChatName: function(aDefaultChatName) {
+    return {"channel": aDefaultChatName};
+  },
 
   // Attributes
   get canJoinChat() true,
