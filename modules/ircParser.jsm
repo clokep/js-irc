@@ -143,9 +143,9 @@ ircParser = {
     "NICK": function(aMessage) {
       // NICK <nickname>
       for each (let conversation in this._conversations) {
-        if (conversation.isChat) {
-          // Update the nick in every chat conversation
-          let oldNick = aMessage.nickname;
+        if (conversation.isChat &&
+            conversation._hasParticipant(aMessage.nickname)) {
+          // Update the nick in every chat conversation the user is in
           let convChatBuddy = conversation._getParticipant(aMessage.nickname);
           convChatBuddy._name = aMessage.params[0];
 
