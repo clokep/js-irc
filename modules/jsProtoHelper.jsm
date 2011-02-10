@@ -475,7 +475,6 @@ const GenericConversationPrototype = {
       observer.observe(aSubject, aTopic, aData);
   },
 
-  doCommand: function(aMsg) false,
   sendMsg: function (aMsg) {
     throw Cr.NS_ERROR_NOT_IMPLEMENTED;
   },
