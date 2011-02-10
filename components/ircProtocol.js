@@ -63,21 +63,6 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/ircParser.jsm");
 
-function dump(str) {
-  Cc["@mozilla.org/consoleservice;1"]
-    .getService(Ci.nsIConsoleService)
-    .logStringMessage(str);
-}
-
-// Handle Scandanavian lower case
-// Optionally remove status indicators
-function normalize(aStr, aRemoveStatus) {
-  if (aRemoveStatus)
-    aStr = aStr.replace(/^[@%\+]/, "");
-  return aStr.toLowerCase().replace("[", "{").replace("]", "}")
-                           .replace("\\", "|").replace("~", "^");
-}
-
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
 }

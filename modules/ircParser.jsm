@@ -35,11 +35,26 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["ircParser"];
+var EXPORTED_SYMBOLS = ["dump", "normalize", "ircParser"];
 
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
+
+function dump(str) {
+  Cc["@mozilla.org/consoleservice;1"]
+    .getService(Ci.nsIConsoleService)
+    .logStringMessage(str);
+}
+
+// Handle Scandanavian lower case
+// Optionally remove status indicators
+function normalize(aStr, aRemoveStatus) {
+  if (aRemoveStatus)
+    aStr = aStr.replace(/^[@%\+]/, "");
+  return aStr.toLowerCase().replace("[", "{").replace("]", "}")
+                           .replace("\\", "|").replace("~", "^");
+}
 
 serverMessage = function(aMessage) {
   this._getConversation(aMessage.source).writeMessage(
