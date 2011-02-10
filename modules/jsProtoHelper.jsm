@@ -256,7 +256,7 @@ const GenericAccountPrototype = {
     for (let fieldName in this.chatRoomFields)
       defaultFieldValues[fieldName] = this.chatRoomFields[fieldName].default;
 
-    if (aDefaultChatName && this.parseDefaultChatName) {
+    if (aDefaultChatName && "parseDefaultChatName" in this) {
       let parsedDefaultChatName = this.parseDefaultChatName(aDefaultChatName);
       for (let field in parsedDefaultChatName)
         defaultFieldValues[field] = parsedDefaultChatName[field];
