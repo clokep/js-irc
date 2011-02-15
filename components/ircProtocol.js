@@ -61,7 +61,7 @@ var Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
-Cu.import("resource://irc-js/ircParser.jsm");
+Cu.import("resource://irc-js/ircUtils.jsm");
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -360,7 +360,9 @@ Account.prototype = {
 };
 Account.prototype.__proto__ = GenericAccountPrototype;
 
-function Protocol() { }
+function Protocol() {
+  this.registerCommands();
+}
 Protocol.prototype = {
   get name() "I R C",
   get iconBaseURI() "chrome://prpl-irc/skin/",
@@ -381,6 +383,12 @@ Protocol.prototype = {
     "quitmsg": {label: "Quit message", default: ""}, // XXX Unused
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
+
+  commands: [
+    {name: "nick", helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
+     run: function(aMessage, aConversation) { /* */ }},
+    {name: "op", helpString: "Change your nick.", run: function() {  }}
+  ],
 
   get chatHasTopic() true,
 
