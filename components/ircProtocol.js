@@ -63,6 +63,9 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/ircUtils.jsm");
 
+Cu.import("resource:///modules/imServices.jsm");
+
+
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
 }
@@ -386,7 +389,10 @@ Protocol.prototype = {
 
   commands: [
     {name: "nick", helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
-     run: function(aMessage, aConversation) { /* */ }},
+     run: function(aMsg, aConv) {
+      let conversation = aConv.account._getConversation(aConv.name);
+      conversation._writeMessage("Test");
+    }},
     {name: "op", helpString: "Change your nick.", run: function() {  }}
   ],
 

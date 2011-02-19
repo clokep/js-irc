@@ -41,10 +41,10 @@ var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
 
+Cu.import("resource:///modules/imServices.jsm");
+
 function dump(str) {
-  Cc["@mozilla.org/consoleservice;1"]
-    .getService(Ci.nsIConsoleService)
-    .logStringMessage(str);
+  Services.console.logStringMessage(str);
 }
 
 // Handle Scandanavian lower case
