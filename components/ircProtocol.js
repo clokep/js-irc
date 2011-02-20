@@ -65,6 +65,10 @@ Cu.import("resource://irc-js/ircUtils.jsm");
 
 Cu.import("resource:///modules/imServices.jsm");
 
+var ircAccounts = [];
+
+// This can be used to test is a string is a valid nickname string
+const nicknameRegexp = /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]/;
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -178,6 +182,8 @@ function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
   this._conversations = {};
   this._buddies = {};
+
+  ircAccounts[this.id] = this;
 
   let matches = aName.split("@", 2); // XXX should this use the username split?
   this._nickname = matches[0];
@@ -390,14 +396,13 @@ Protocol.prototype = {
   commands: [
     {name: "nick", helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
      run: function(aMsg, aConv) {
-
-      for (let field in this)
-        dump(field + " " + this[field]);
-      dump(this);
-      dump(aConv);
-      if (aMsg.length)
-        dump(aMsg);
-      return true;
+      let account = ircAccounts[aConv.account.id];
+      if (aMsg.length && aMsg.match(nicknameRegexp)) {
+        account._sendMessage("NICK", [aMsg]);
+        return true;
+      }
+      // XXX error message on bad nick?
+      return false;
     }},
     {name: "op", helpString: "Change your nick.", run: function() {  }}
   ],
