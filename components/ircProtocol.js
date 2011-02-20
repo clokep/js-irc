@@ -162,8 +162,8 @@ function Conversation(aAccount, aName) {
 Conversation.prototype = {
   sendMsg: function(aMessage) {
     // XXX make private messages work
-    //this.account._sendMessage("PRIVMSG", [aMessage], this.name);
-    this.account._sendMessage(aMessage);
+    this.account._sendMessage("PRIVMSG", [aMessage], this.name);
+    //this.account._sendMessage(aMessage);
     this.writeMessage(this.account._nickname,
                       aMessage,
                       {outgoing: true});
@@ -390,8 +390,14 @@ Protocol.prototype = {
   commands: [
     {name: "nick", helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
      run: function(aMsg, aConv) {
-      let conversation = aConv.account._getConversation(aConv.name);
-      conversation._writeMessage("Test");
+
+      for (let field in this)
+        dump(field + " " + this[field]);
+      dump(this);
+      dump(aConv);
+      if (aMsg.length)
+        dump(aMsg);
+      return true;
     }},
     {name: "op", helpString: "Change your nick.", run: function() {  }}
   ],
