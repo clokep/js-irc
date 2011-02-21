@@ -177,7 +177,7 @@ ircParser = {
     },
     "NOTICE": function(aMessage) {
       // NOTICE <msgtarget> <text>
-      this._getConversation(aMessage.source).writeMessage(
+      this._getConversation(aMessage.nickname || aMessage.source).writeMessage(
         aMessage.nickname || aMessage.source,
         aMessage.params[1],
         {incoming: true}
