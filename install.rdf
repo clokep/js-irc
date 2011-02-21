@@ -41,16 +41,19 @@
 	<Description about="urn:mozilla:install-manifest">
 		<!-- Extension Information //-->
 		<em:id>irc-js@patrick.cloke</em:id>
-		<em:version>0.2pre</em:version>
+		<em:version>0.3pre</em:version>
 		<em:type>2</em:type> <!-- Extension //-->
 
 		<!-- Front End MetaData //-->
-		<em:name>IRC-JavaScript</em:name>
-		<em:description>Adds IRC as as a protocol (written in JavaScript).</em:description>
+		<em:name>IRC in JavaScript</em:name>
+		<em:description>
+      Replaces the libpurple IRC protocol with an implementation written in
+      JavaScript using jsProtoHelper.
+    </em:description>
 		<em:creator>Patrick Cloke</em:creator>
 
 		<!-- Internal References //-->
-		<!--<em:iconURL>chrome://irc/chrome/content/.png</em:iconURL>//-->
+		<em:iconURL>chrome://prpl-irc/skin/icon48.png</em:iconURL>
 
 		<!-- Target Applications //-->
 		<em:targetApplication>
