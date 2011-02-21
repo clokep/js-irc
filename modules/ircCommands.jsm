@@ -72,24 +72,39 @@ function joinCommand(aMsg, aConv) {
       if (keys.length > i)
         params.push(keys[i]);
 
-      dump(channels + "\n" + keys + "\n" + i + "\n" + params);
+      // params is (<channel>, [<channel>])
       account._sendMessage("JOIN", params);
     }
     return true;
   }
   return false;
 }
-function kickCommand(aMsg, aConv) { }
-function messageCommand(aMsg) {
+
+// Kick a user from a channel
+// aMsg is <user> [comment]
+function kickCommand(aMsg, aConv) {
   if (aMsg.length) {
-    let params = aMsg.split(" ");
-    if (params.length > 1 && params[1].length)
-      return privateMessage(params[1], params[0]);
+    let params = aMsg.split(" ").unshift(aConv.name);
+    // params is (<channel>, <user>, [comment])
+    ircAccounts[aConv.account.id]._sendMessage("KICK", params);
+    return true;
   }
   return false;
 }
 
-function privateMessage(aMsg, aNickname) {
+// Send a message directly to a user
+// aMsg is <user> <message>
+function messageCommand(aMsg, aConv) {
+  if (aMsg.length) {
+    let params = aMsg.split(" ");
+    if (params.length > 1 && params[1].length)
+      return privateMessage(aConv, params[1], params[0]);
+  }
+  return false;
+}
+
+// Helper functions
+function privateMessage(aConv, aMsg, aNickname) {
   if (aMsg.length) {
     // This will open the conversation, send and display the text
     ircAccounts[aConv.account.id]._getConversation(aNickname).sendMessage(aMsg);
@@ -97,7 +112,14 @@ function privateMessage(aMsg, aNickname) {
   }
   return false;
 }
-
+// This will send a command directly where aMsg is the entire parameter
+function simpleCommand(aConv, aCommand, aMsg) {
+  if (aMsg.length) {
+    ircAccounts[aConv.account.id]._sendMessage(aCommand, [aMsg]);
+    return true;
+  }
+  return false;
+}
 
 var ircCommands = [
   // XXX action
@@ -122,7 +144,7 @@ var ircCommands = [
   {
     name: "chanserv",
     helpString: "chanserv <command>:  Send a command to the ChanServ.",
-    run: function(aMsg, aConv) privateMessage(aMsg, "ChanServ")
+    run: function(aMsg, aConv) privateMessage(aConv, aMsg, "ChanServ")
   },
   // XXX deop
   /*{
@@ -160,13 +182,12 @@ var ircCommands = [
                 "each if needed.",
     run: joinCommand
   },
-  // XXX kick
-  /*{
+  {
     name: "kick",
     helpString: "kick <nick> [message]: 	Remove someone from a channel. You " +
                 "must be a channel operator to do this.",
     run: function(aMsg, aConv) kickCommand(aMsg, aConv)
-  },*/
+  },
   /*{
     name: "list",
     helpString: "list:  Display a list of chat rooms on the network. " +
@@ -182,7 +203,7 @@ var ircCommands = [
   {
     name: "memoserv",
     helpString: "memoserv <command>:  Send a command to the MemoServ.",
-    run: function(aMsg, aConv) privateMessage(aMsg, "MemoServ")
+    run: function(aMsg, aConv) privateMessage(aConv, aMsg, "MemoServ")
   },
   // XXX mode
   /*{
@@ -195,14 +216,16 @@ var ircCommands = [
     name: "msg",
     helpString: "msg <nick> <message>:  Send a private message to a user (as " +
                 "opposed to a channel).",
-    run: function(aMsg, aConv) messageCommand(aMsg)
+    run: function(aMsg, aConv) messageCommand(aMsg, aConv)
   },
-  // XXX names
-  /*{
+  // XXX all this does is force the UI to reload the names...which shouldn't be
+  // out of date
+  {
     name: "names",
     helpString: "names [channel]:  List the users currently in a channel.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv)
+      simpleCommand(aConv, "NAMES", aMsg || aConv.account.name)
+  },
   {
     name: "nick",
     helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
@@ -219,7 +242,7 @@ var ircCommands = [
   {
     name: "nickserv",
     helpString: "nickserv <command>:  Send a command to the NickServ.",
-    run: function(aMsg, aConv) privateMessage(aMsg, "NickServ")
+    run: function(aMsg, aConv) privateMessage(aConv, aMsg, "NickServ")
   },
   // XXX notice
   /*{
@@ -244,7 +267,7 @@ var ircCommands = [
   {
     name: "operserv",
     helpString: "operserv <command>:  Send a command to the OperServ.",
-    run: function(aMsg, aConv) privateMessage(aMsg, "OperServ")
+    run: function(aMsg, aConv) privateMessage(aConv, aMsg, "OperServ")
   },
   // XXX part
   /*{
@@ -264,40 +287,39 @@ var ircCommands = [
     name: "query",
     helpString: "query <nick> <message>:  Send a private message to a user " +
                 "(as opposed to a channel).",
-    run: function(aMsg, aConv) messageCommand(aMsg)
+    run: function(aMsg, aConv) messageCommand(aMsg, aConv)
   },
-  // XXX quit
-  /*{
+  {
     name: "quit",
     helpString: "quit [message]:  Disconnect from the server, with an " +
                 "optional message.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) simpleCommand(aConv, "QUIT", aMsg)
+  },
   // XXX quote, Instantbird has raw for all protocols?
   /*{
     name: "quote",
     helpString: "quote [...]:  Send a raw command to the server.",
     run: function(aMsg, aConv) { }
   },*/
-  // XXX remove
-  /*{
+  {
     name: "remove",
     helpString: "remove <nick> [message]:  Remove someone from a room. You " +
                 "must be a channel operator to do this.",
-    run: function(aMsg, aConv) kickCommand(aMsg, aConv);
-  },*/
-  // XXX time
-  /*{
+    run: function(aMsg, aConv) kickCommand(aMsg, aConv)
+  },
+  {
     name: "time",
     helpString: "time:  Displays the current local time at the IRC server.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX topic
-  /*{
+    run: function(aMsg, aConv) {
+      ircAccounts[aConv.account.id]._sendMessage("TIME");
+      return true;
+    }
+  },
+  {
     name: "topic",
     helpString: "topic [new topic]:  View or change the channel topic.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) simpleCommand(aConv, "TOPIC", aMsg)
+  },
   // XXX umode
   /*{
     name: "umode",
@@ -324,17 +346,22 @@ var ircCommands = [
                 "probably can't use it.",
     run: function(aMsg, aConv) { }
   },*/
-  // XXX whois
-  /*{
+  {
     name: "whois",
     helpString: "whois [server] <nick>:  Get information on a user.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX whowas
-  /*{
+    run: function(aMsg, aConv) {
+      if (aMsg.length) {
+        let params = aMsg.split(" ");
+        ircAccounts[aConv.account.id]._sendMessage("WHOIS", params);
+        return true;
+      }
+      return false;
+    }
+  },
+  {
     name: "whowas",
     helpString: "whowas <nick>:  Get information on a user that has logged " +
                 "off.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) simpleCommand(aConv, "WHOWAS", aMsg)
+  }
 ];

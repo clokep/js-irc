@@ -81,7 +81,7 @@ ircParser = {
     else {
       // XXX Output it for debug
       Cu.reportError("Unhandled: " + aMessage.rawMessage);
-      this._getConversation(aMessage.source).writeMessage(
+      aAccount._getConversation(aMessage.source).writeMessage(
         aMessage.source,
         aMessage.rawMessage,
         {error: true}
