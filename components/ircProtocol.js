@@ -61,14 +61,8 @@ var Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
+Cu.import("resource://irc-js/ircCommands.jsm");
 Cu.import("resource://irc-js/ircUtils.jsm");
-
-Cu.import("resource:///modules/imServices.jsm");
-
-var ircAccounts = [];
-
-// This can be used to test is a string is a valid nickname string
-const nicknameRegexp = /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]/;
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -393,19 +387,7 @@ Protocol.prototype = {
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
-  commands: [
-    {name: "nick", helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
-     run: function(aMsg, aConv) {
-      let account = ircAccounts[aConv.account.id];
-      if (aMsg.length && aMsg.match(nicknameRegexp)) {
-        account._sendMessage("NICK", [aMsg]);
-        return true;
-      }
-      // XXX error message on bad nick?
-      return false;
-    }},
-    {name: "op", helpString: "Change your nick.", run: function() {  }}
-  ],
+  commands: ircCommands,
 
   get chatHasTopic() true,
 
