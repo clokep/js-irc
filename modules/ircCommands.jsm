@@ -49,6 +49,7 @@ var ircAccounts = {};
 // This can be used to test is a string is a valid nickname string
 const nicknameRegexp = /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]*/;
 
+// Define some functions that have multiple aliases for commands
 function joinCommand(aMsg, aConv) {
   if (aMsg.length) {
     // Get the account
@@ -78,6 +79,25 @@ function joinCommand(aMsg, aConv) {
   }
   return false;
 }
+function kickCommand(aMsg, aConv) { }
+function messageCommand(aMsg) {
+  if (aMsg.length) {
+    let params = aMsg.split(" ");
+    if (params.length > 1 && params[1].length)
+      return privateMessage(params[1], params[0]);
+  }
+  return false;
+}
+
+function privateMessage(aMsg, aNickname) {
+  if (aMsg.length) {
+    // This will open the conversation, send and display the text
+    ircAccounts[aConv.account.id]._getConversation(aNickname).sendMessage(aMsg);
+    return true;
+  }
+  return false;
+}
+
 
 var ircCommands = [
   // XXX action
@@ -102,15 +122,7 @@ var ircCommands = [
   {
     name: "chanserv",
     helpString: "chanserv <command>:  Send a command to the ChanServ.",
-    run: function(aMsg, aConv) {
-      if (aMsg.length) {
-        // This will open the conversation, send and display the text
-        ircAccounts[aConv.account.id]._getConversation("ChanServ")
-                                     .sendMessage(aMsg);
-        return true;
-      }
-      return false;
-    }
+    run: function(aMsg, aConv) privateMessage(aMsg, "ChanServ")
   },
   // XXX deop
   /*{
@@ -153,7 +165,7 @@ var ircCommands = [
     name: "kick",
     helpString: "kick <nick> [message]: 	Remove someone from a channel. You " +
                 "must be a channel operator to do this.",
-    run: function(aMsg, aConv) { }
+    run: function(aMsg, aConv) kickCommand(aMsg, aConv)
   },*/
   /*{
     name: "list",
@@ -165,6 +177,30 @@ var ircCommands = [
   /*{
     name: "me",
     helpString: "me <action to perform>:  Perform an action.",
+    run: function(aMsg, aConv) { }
+  },*/
+  {
+    name: "memoserv",
+    helpString: "memoserv <command>:  Send a command to the MemoServ.",
+    run: function(aMsg, aConv) privateMessage(aMsg, "MemoServ")
+  },
+  // XXX mode
+  /*{
+    name: "mode",
+    helpString: "mode &lt;+|-&gt;&lt;A-Za-z&gt; &lt;nick|channel&gt;:  Set " +
+                "or unset a channel or user mode.",
+    run: function(aMsg, aConv) { }
+  },*/
+  {
+    name: "msg",
+    helpString: "msg <nick> <message>:  Send a private message to a user (as " +
+                "opposed to a channel).",
+    run: function(aMsg, aConv) messageCommand(aMsg)
+  },
+  // XXX names
+  /*{
+    name: "names",
+    helpString: "names [channel]:  List the users currently in a channel.",
     run: function(aMsg, aConv) { }
   },*/
   {
@@ -180,5 +216,125 @@ var ircCommands = [
       return false;
     }
   },
-  {name: "op", helpString: "Change your nick.", run: function() {  }}
+  {
+    name: "nickserv",
+    helpString: "nickserv <command>:  Send a command to the NickServ.",
+    run: function(aMsg, aConv) privateMessage(aMsg, "NickServ")
+  },
+  // XXX notice
+  /*{
+    name: "notice",
+    helpString: "notice &lt;target&gt;:  Send a notice to a user or channel.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX op
+  /*{
+    name: "op",
+    helpString: "op <nick1> [nick2] ... 	Grant channel operator status to " +
+                "someone. You must be a channel operator to do this.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX operwall
+  /*{
+    name: "operwall",
+    helpString: "operwall <message>:  If you don't know what this is, you " +
+                "probably can't use it.",
+    run: function(aMsg, aConv) { }
+  },*/
+  {
+    name: "operserv",
+    helpString: "operserv <command>:  Send a command to the OperServ.",
+    run: function(aMsg, aConv) privateMessage(aMsg, "OperServ")
+  },
+  // XXX part
+  /*{
+    name: "part",
+    helpString: "part [room] [message]:  Leave the current channel, or a " +
+                "specified channel, with an optional message.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX ping
+  /*{
+    name: "ping",
+    helpString: "ping [nick]:  Asks how much lag a user (or the server if no " +
+                "user specified) has.",
+    run: function(aMsg, aConv) { }
+  },*/
+  {
+    name: "query",
+    helpString: "query <nick> <message>:  Send a private message to a user " +
+                "(as opposed to a channel).",
+    run: function(aMsg, aConv) messageCommand(aMsg)
+  },
+  // XXX quit
+  /*{
+    name: "quit",
+    helpString: "quit [message]:  Disconnect from the server, with an " +
+                "optional message.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX quote, Instantbird has raw for all protocols?
+  /*{
+    name: "quote",
+    helpString: "quote [...]:  Send a raw command to the server.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX remove
+  /*{
+    name: "remove",
+    helpString: "remove <nick> [message]:  Remove someone from a room. You " +
+                "must be a channel operator to do this.",
+    run: function(aMsg, aConv) kickCommand(aMsg, aConv);
+  },*/
+  // XXX time
+  /*{
+    name: "time",
+    helpString: "time:  Displays the current local time at the IRC server.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX topic
+  /*{
+    name: "topic",
+    helpString: "topic [new topic]:  View or change the channel topic.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX umode
+  /*{
+    name: "umode",
+    helpString: "umode &lt;+|-&gt;&lt;A-Za-z&gt;:  Set or unset a user mode.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX version
+  /*{
+    name: "version",
+    helpString: "version [nick]:  Send CTCP VERSION request to a user.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX voice
+  /*{
+    name: "voice",
+    helpString: "voice <nick1> [nick2] ...:  Grant channel voice status to " +
+                "someone. You must be a channel operator to do this.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX wallops
+  /*{
+    name: "wallops",
+    helpString: "wallops <message>:  If you don't know what this is, you " +
+                "probably can't use it.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX whois
+  /*{
+    name: "whois",
+    helpString: "whois [server] <nick>:  Get information on a user.",
+    run: function(aMsg, aConv) { }
+  },*/
+  // XXX whowas
+  /*{
+    name: "whowas",
+    helpString: "whowas <nick>:  Get information on a user that has logged " +
+                "off.",
+    run: function(aMsg, aConv) { }
+  },*/
 ];
