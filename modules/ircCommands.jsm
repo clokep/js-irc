@@ -295,12 +295,28 @@ var ircCommands = [
                 "optional message.",
     run: function(aMsg, aConv) simpleCommand(aConv, "QUIT", aMsg)
   },
-  // XXX quote, Instantbird has raw for all protocols?
-  /*{
+  {
     name: "quote",
-    helpString: "quote [...]:  Send a raw command to the server.",
-    run: function(aMsg, aConv) { }
-  },*/
+    helpString: "quote <command>:  Send a raw command to the server.",
+    run: function(aMsg, aConv)  {
+      if (aMsg.length) {
+        ircAccounts[aConv.account.id]._sendMessage(aMsg);
+        return true;
+      }
+      return false;
+    }
+  },
+  {
+    name: "raw",
+    helpString: "raw <command>:  Send a raw command to the server.",
+    run: function(aMsg, aConv)  {
+      if (aMsg.length) {
+        ircAccounts[aConv.account.id]._sendMessage(aMsg);
+        return true;
+      }
+      return false;
+    }
+  },
   {
     name: "remove",
     helpString: "remove <nick> [message]:  Remove someone from a room. You " +
