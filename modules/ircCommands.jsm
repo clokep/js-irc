@@ -84,7 +84,8 @@ function joinCommand(aMsg, aConv) {
 // aMsg is <user> [comment]
 function kickCommand(aMsg, aConv) {
   if (aMsg.length) {
-    let params = aMsg.split(" ").unshift(aConv.name);
+    let params = aMsg.split(" ");
+    params.unshift(aConv.name);
     // params is (<channel>, <user>, [comment])
     ircAccounts[aConv.account.id]._sendMessage("KICK", params);
     return true;
@@ -107,7 +108,7 @@ function messageCommand(aMsg, aConv) {
 function privateMessage(aConv, aMsg, aNickname) {
   if (aMsg.length) {
     // This will open the conversation, send and display the text
-    ircAccounts[aConv.account.id]._getConversation(aNickname).sendMessage(aMsg);
+    ircAccounts[aConv.account.id]._getConversation(aNickname).sendMsg(aMsg);
     return true;
   }
   return false;
