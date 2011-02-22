@@ -73,11 +73,10 @@ serverMessageEnd = function(aMessage) {
 
 ircParser = {
   // Handle command responses
-	// XXX Should this have an argument for different RFCs?
 	parse: function(aAccount, aMessage) {
 		let command = aMessage.command.toUpperCase();
-		if (this.rfc2812.hasOwnProperty(command))
-			this.rfc2812[command].call(aAccount, aMessage);
+		if (this.commands.hasOwnProperty(command))
+			this.commands[command].call(aAccount, aMessage);
     else {
       // XXX Output it for debug
       Cu.reportError("Unhandled: " + aMessage.rawMessage);
@@ -89,7 +88,7 @@ ircParser = {
     }
 	},
 
-  rfc2812: {
+  commands: {
     "ERROR": function(aMessage) {
       // ERROR <error message>
       // Client connection has been terminated
@@ -228,7 +227,7 @@ ircParser = {
           let quitMessage = aMessage.nickname + " has left the room (Quit";
           // If a quit message was included, show it
           if (aMessage.params.length)
-            quitMessage += ": function(aMessage) { " + aMessage.params[0];
+            quitMessage += ": " + aMessage.params[0];
           quitMessage += ").";
           conversation.writeMessage(aMessage.source,
                                     quitMessage,

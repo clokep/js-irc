@@ -104,6 +104,15 @@ function messageCommand(aMsg, aConv) {
   return false;
 }
 
+function setMode(aMsg, aConv, aMode, aAddMode) {
+  if (aMsg.length) {
+    let mode = (!!aAddMode ? "+" : "-") + aMode;
+    ircAccounts[aConv.account.id]._sendMessage("MODE", [aNickname, mode]);
+    return true;
+  }
+  return false;
+}
+
 // Helper functions
 function privateMessage(aConv, aMsg, aNickname) {
   if (aMsg.length) {
@@ -147,21 +156,19 @@ var ircCommands = [
     helpString: "chanserv <command>:  Send a command to the ChanServ.",
     run: function(aMsg, aConv) privateMessage(aConv, aMsg, "ChanServ")
   },
-  // XXX deop
-  /*{
+  {
     name: "deop",
     helpString: "deop <nick1> [nick2] ...: Remove channel operator status " +
                 "from someone. You must be a channel operator to do this.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX devoice
-  /*{
+    run: function(aMsg, aConv) setMode(aMsg, aConv, "o", false)
+  },
+  {
     name: "devoice",
     helpString: "devoice <nick1> [nick2] ...: Remove channel voice status " +
                 "from someone, preventing them from speaking if the channel " +
                 "is moderated (+m). You must be a channel operator to do this.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) setMode(aMsg, aConv, "v", false)
+  },
   // XXX invite
   /*{
     name: "invite",
@@ -251,20 +258,19 @@ var ircCommands = [
     helpString: "notice &lt;target&gt;:  Send a notice to a user or channel.",
     run: function(aMsg, aConv) { }
   },*/
-  // XXX op
-  /*{
+  {
     name: "op",
     helpString: "op <nick1> [nick2] ... 	Grant channel operator status to " +
                 "someone. You must be a channel operator to do this.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX operwall
-  /*{
+    run: function(aMsg, aConv) setMode(aMsg, aConv, "o", true)
+  },
+  {
     name: "operwall",
     helpString: "operwall <message>:  If you don't know what this is, you " +
-                "probably can't use it.",
-    run: function(aMsg, aConv) { }
-  },*/
+                "probably can't use it (sends a command to all connected " +
+                "with the +w flag and all operators on the server.",
+    run: function(aMsg, aConv) simpleCommand(aConv, "WALLOPS", aMsg)
+  },
   {
     name: "operserv",
     helpString: "operserv <command>:  Send a command to the OperServ.",
@@ -308,17 +314,6 @@ var ircCommands = [
     }
   },
   {
-    name: "raw",
-    helpString: "raw <command>:  Send a raw command to the server.",
-    run: function(aMsg, aConv)  {
-      if (aMsg.length) {
-        ircAccounts[aConv.account.id]._sendMessage(aMsg);
-        return true;
-      }
-      return false;
-    }
-  },
-  {
     name: "remove",
     helpString: "remove <nick> [message]:  Remove someone from a room. You " +
                 "must be a channel operator to do this.",
@@ -349,20 +344,19 @@ var ircCommands = [
     helpString: "version [nick]:  Send CTCP VERSION request to a user.",
     run: function(aMsg, aConv) { }
   },*/
-  // XXX voice
-  /*{
+  {
     name: "voice",
     helpString: "voice <nick1> [nick2] ...:  Grant channel voice status to " +
                 "someone. You must be a channel operator to do this.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX wallops
-  /*{
+    run: function(aMsg, aConv) setMode(aMsg, aConv, "v", true)
+  },
+  {
     name: "wallops",
     helpString: "wallops <message>:  If you don't know what this is, you " +
-                "probably can't use it.",
-    run: function(aMsg, aConv) { }
-  },*/
+                "probably can't use it (sends a command to all connected " +
+                "with the +w flag and all operators on the server.",
+    run: function(aMsg, aConv) simpleCommand(aConv, "WALLOPS", aMsg)
+  },
   {
     name: "whois",
     helpString: "whois [server] <nick>:  Get information on a user.",

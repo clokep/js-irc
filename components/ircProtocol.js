@@ -217,7 +217,8 @@ Account.prototype = {
     if (this.connected) {
       // Let the server know we're going to disconnect
       this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
-      this._sendMessage("QUIT"); // RFC 2812 Section 3.1.7
+      let quitMessage = this.getString("quitmsg");
+      this._sendMessage("QUIT", [quitMessage]); // RFC 2812 Section 3.1.7
     } else
       this._disconnect(); // We're not connected, just disconnect
   },
@@ -382,7 +383,8 @@ Protocol.prototype = {
     "autodetect_utf8": {label: "Auto-detect incoming UTF-8", default: false}, // XXX Unused
     "username": {label: "Username", default: ""},
     "realname": {label: "Real name", default: ""},
-    "quitmsg": {label: "Quit message", default: ""}, // XXX Unused
+    "quitmsg": {label: "Quit message", default: "Instantbird " +
+                                                "<http://www.instantbird.org>"},
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
