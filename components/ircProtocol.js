@@ -138,6 +138,7 @@ ConvChatBuddy.prototype = {
                    "w": "wallop", // User receives wallops
                    "r": "restricted", // Restricted user connection
                    "o": "op", // Operator flag
+                   "h": "halfOp", // Half operator flag
                    "O": "lop", // Local operator flag
                    "s": "server"}; // User receives server notices
                    //XXX voice, channel creator? see 4.1 of RFC 2811
