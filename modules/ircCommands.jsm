@@ -131,6 +131,11 @@ function simpleCommand(aConv, aCommand, aMsg) {
   return false;
 }
 
+function noParamCommand(aConv, aCommand) {
+  ircAccounts[aConv.account.id]._sendMessage(aCommand);
+  return true;
+}
+
 var ircCommands = [
   // XXX action
   /*{
@@ -194,14 +199,14 @@ var ircCommands = [
     name: "kick",
     helpString: "kick <nick> [message]: 	Remove someone from a channel. You " +
                 "must be a channel operator to do this.",
-    run: function(aMsg, aConv) kickCommand(aMsg, aConv)
+    run: kickCommand
   },
-  /*{
+  {
     name: "list",
     helpString: "list:  Display a list of chat rooms on the network. " +
                 "Warning, some servers may disconnect you upon doing this.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) noParamCommand("LIST")
+  },
   // XXX me
   /*{
     name: "me",
@@ -218,13 +223,13 @@ var ircCommands = [
     name: "mode",
     helpString: "mode &lt;+|-&gt;&lt;A-Za-z&gt; &lt;nick|channel&gt;:  Set " +
                 "or unset a channel or user mode.",
-    run: function(aMsg, aConv) { }
+    run: function(aMsg, aConv) simpleCommand(aConv, "MODE", )
   },*/
   {
     name: "msg",
     helpString: "msg <nick> <message>:  Send a private message to a user (as " +
                 "opposed to a channel).",
-    run: function(aMsg, aConv) messageCommand(aMsg, aConv)
+    run: messageCommand
   },
   // XXX all this does is force the UI to reload the names...which shouldn't be
   // out of date
@@ -294,13 +299,15 @@ var ircCommands = [
     name: "query",
     helpString: "query <nick> <message>:  Send a private message to a user " +
                 "(as opposed to a channel).",
-    run: function(aMsg, aConv) messageCommand(aMsg, aConv)
+    run: messageCommand
   },
   {
     name: "quit",
     helpString: "quit [message]:  Disconnect from the server, with an " +
                 "optional message.",
-    run: function(aMsg, aConv) simpleCommand(aConv, "QUIT", aMsg)
+    run: function(aMsg, aConv)
+      (aMsg.length) ? simpleCommand(aConv, "QUIT", aMsg) :
+        noParamCommand(aConv, "QUIT")
   },
   {
     name: "quote",
@@ -317,15 +324,12 @@ var ircCommands = [
     name: "remove",
     helpString: "remove <nick> [message]:  Remove someone from a room. You " +
                 "must be a channel operator to do this.",
-    run: function(aMsg, aConv) kickCommand(aMsg, aConv)
+    run: kickCommand
   },
   {
     name: "time",
     helpString: "time:  Displays the current local time at the IRC server.",
-    run: function(aMsg, aConv) {
-      ircAccounts[aConv.account.id]._sendMessage("TIME");
-      return true;
-    }
+    run: function(aMsg, aConv) noParamCommand("TIME")
   },
   {
     name: "topic",
