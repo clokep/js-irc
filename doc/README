@@ -1,0 +1,66 @@
+A brief history of specifications is given below.  Websites are given where the
+official specification lives, but they have all been copied into this directory
+for convenience.  Note that some of these links may be broken.
+
+See RFC protocols (http://www.irchelp.org/irchelp/rfc/):
+  RFC 1459 (original RFC; superseded by RFC 2810 -- RFC 2813)
+    http://tools.ietf.org/html/rfc1459
+  RFC 2810 (IRC architecture)
+    http://tools.ietf.org/html/rfc2810
+  RFC 2811 (IRC channel management)
+    http://tools.ietf.org/html/rfc2811
+    This mostly applies only to servers
+  RFC 2812 (IRC client protocol)
+    http://tools.ietf.org/html/rfc2812
+  RFC 2813 (IRC server protocol)
+    http://tools.ietf.org/html/rfc2813
+    This applies only to servers
+
+File Transfer / CTCP extensions:
+  DCC specification (superseded fully by CTCP specification)
+    http://www.irchelp.org/irchelp/rfc/dccspec.html
+  CTCP specification
+    http://www.irchelp.org/irchelp/rfc/ctcpspec.html
+  Updated CTCP specification
+    http://www.invlogic.com/irc/ctcp.html
+    This is not fully supported by clients
+  Turbo DCC
+    http://www.visualirc.net/tech-tdcc.php
+  RDCC / DCC REVERSE / DCC RSEND / Reverse/Firewall DCC / FSERVs
+  XDCC (eXtended DCC)
+  CTCP/2
+    http://www.invlogic.com/irc/ctcp2_intro.html
+  SDCC / DCC SCHAT (Secure DCC)
+  See http://www.kvirc.de/docu/doc_dcc_connection.html for an overall comparison
+  and explanation of the extensions to DCC.
+
+  DCC2 (superseds DCC, CTCP, updated CTCP, CTCP/2) -- http://www.dcc2.org/
+    http://www.ietf.org/proceedings/61/IDs/draft-smith-irc-dcc2-negotiation-00.txt
+    http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-files-00.txt
+    http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-negotiation-00.txt
+    This doesn't seem done
+
+Extension Support
+  ISupport
+    http://tools.ietf.org/html/draft-brocklesby-irc-isupport-03
+    Response code 005; supported by most servers
+  Updated ISupport
+    http://tools.ietf.org/html/draft-hardy-irc-isupport-00
+  IRC Capabilities
+    http://tools.ietf.org/html/draft-mitchell-irc-capabilities-01
+    http://www.leeh.co.uk/draft-mitchell-irc-capabilities-02.html
+    Standardization for reporting extensions
+
+Authentication:
+  SASL authentication (PLAIN and BLOWFISH)
+    http://hg.atheme.org/atheme/atheme/raw-file/tip/doc/SASL
+    Depends on IRC Capabilities
+  NickServ
+  Auth?
+
+Other:
+  DCC Whiteboard Specification
+    http://www.visualirc.net/tech-wboard.php
+  IRCX (extends RFC 1459)
+    http://tools.ietf.org/html/draft-pfenning-irc-extensions-04
+    Microsoft's extension to IRC for
