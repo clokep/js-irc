@@ -34,26 +34,6 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-/*
- * See RFC protocols (http://www.irchelp.org/irchelp/rfc/)
- *   RFC1459 (original RFC; superseded) -- http://tools.ietf.org/html/rfc1459
- *   RFC2810 (IRC architecture) -- http://tools.ietf.org/html/rfc2810
- *   RFC2811 (IRC channel management) -- http://tools.ietf.org/html/rfc2811
- *     Mostly for servers
- *   RFC2812 (IRC client protocol) -- http://tools.ietf.org/html/rfc2812
- *   RFC2813 (IRC server protocol) -- http://tools.ietf.org/html/rfc2813
- *     Servers only
- *
- *   DCC specification -- http://www.irchelp.org/irchelp/rfc/dccspec.html
- *   CTCP specification -- http://www.irchelp.org/irchelp/rfc/ctcpspec.html
- *   Updated CTCP specification -- http://www.invlogic.com/irc/ctcp.html
- *     Not fully supported by clients
- *
- *   ISupport -- http://tools.ietf.org/html/draft-brocklesby-irc-isupport-03
- *     Response code 005; supported by most servers
- *   Updated ISupport -- http://tools.ietf.org/html/draft-hardy-irc-isupport-00
- */
-
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
