@@ -280,7 +280,7 @@ Account.prototype = {
     if (!message.source) // No real message
       return;
 
-    ircParser.parse(this, message);
+    handleMessage(this, message);
   },
 
   _hasConversation: function(aConversationName)
