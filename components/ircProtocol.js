@@ -44,6 +44,10 @@ Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/ircCommands.jsm");
 Cu.import("resource://irc-js/ircUtils.jsm");
 
+// Import specifications
+Cu.import("resource://irc-js/rfc2812.jsm");
+var specifications = [rfc2812];
+
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
 }
@@ -276,11 +280,43 @@ Account.prototype = {
   // Remove aConversation blah blah
   _handleMessage: function(aRawMessage) {
     var message = this._parseMessage(aRawMessage);
+
+    // XXX For debug only
     dump(JSON.stringify(message));
-    if (!message.source) // No real message
+
+    if (!message.source) // Not a real message
       return;
 
-    handleMessage(this, message);
+    let command = message.command.toUpperCase(),
+        handled = false,
+        rawMessage = "";
+
+    // Loop over each specification set and call the command
+    for (let i = 0; i < specifications.length; i++) {
+      let spec = specifications[i];
+      // If the command exists in the spec, execute it
+      if (spec.hasOwnProperty(command))
+        [handled, rawMessage] = spec[command].call(this, message);
+
+      // Message was handled, cut out early
+      if (handled)
+        break;
+    }
+
+    // Nothing handled the message, throw an error
+    if (!handled) {
+      // XXX Output it for debug
+      Cu.reportError("Unhandled message: " + aRawMessage);
+      this._getConversation(message.source).writeMessage(
+        message.source,
+        message.rawMessage,
+        {error: true}
+      );
+    }
+
+    // A partial message was returned, call the parser again
+    if (rawMessage.length)
+      this._handleMessage(rawMessage);
   },
 
   _hasConversation: function(aConversationName)
@@ -293,7 +329,7 @@ Account.prototype = {
     // Handle Scandanavian lower case
     let normalizedName = normalize(aConversationName);
     if (!this._conversations.hasOwnProperty(normalizedName)) {
-      let constructor = /^[&#+!]/.test(normalizedName) ? Chat : Conversation;
+      let constructor = isMUCName(normalizedName) ? Chat : Conversation;
       this._conversations[normalizedName] =
         new constructor(this, aConversationName, this._nickname);
     }

@@ -35,14 +35,13 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["dump", "normalize", "handleMessage"];
+var EXPORTED_SYMBOLS = ["dump", "normalize", "handleMessage", "isMUCName"];
 
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
 
 Cu.import("resource:///modules/imServices.jsm");
-Cu.import("resource://irc-js/rfc2812.jsm");
 
 function dump(str) {
   Services.console.logStringMessage(str);
@@ -57,45 +56,6 @@ function normalize(aStr, aRemoveStatus) {
                            .replace("\\", "|").replace("~", "^");
 }
 
-// Handle command responses
-var specifications = [rfc2812];
-function handleMessage(aAccount, aMessage) {
-  dump(aMessage);
-  let command = aMessage.command.toUpperCase(),
-      handled = false,
-      message = "";
-
-  dump(command + " " + handled + " " + message);
-
-  // Loop over each specification set and call the command
-  for (let i = 0; i < specifications.length; i++) {
-    let spec = specifications[i];
-    dump(i);
-    // If the command exists in the spec, execute it
-    if (spec.hasOwnProperty(command)) {
-      dump(handled + " " + message);
-      dump(spec[command]);
-      [handled, message] = spec[command].call(aAccount, aMessage);
-      dump(handled + " " + message);
-    }
-
-    // Message was handled, cut out early
-    if (handled)
-      break;
-  }
-
-  // Nothing handled the message, throw an error
-  if (!handled) {
-    // XXX Output it for debug
-    Cu.reportError("Unhandled message: " + aMessage.rawMessage);
-    aAccount._getConversation(aMessage.source).writeMessage(
-      aMessage.source,
-      aMessage.rawMessage,
-      {error: true}
-    );
-  }
-
-  // A partial message was returned, call the parser again
-  if (message.length)
-    handleMessage(aAccount, aMessage);
+function isMUCName(aStr) {
+  return /^[&#+!]/.test(normalize(aStr));
 }

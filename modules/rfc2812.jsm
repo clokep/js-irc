@@ -37,6 +37,12 @@
 
 var EXPORTED_SYMBOLS = ["rfc2812"];
 
+var Cc = Components.classes;
+var Ci = Components.interfaces;
+var Cu = Components.utils;
+
+Cu.import("resource://irc-js/ircUtils.jsm");
+
 // Some helper functions for very common command results
 function serverMessage(aMessage) {
   this._getConversation(aMessage.source).writeMessage(
@@ -53,6 +59,8 @@ function serverMessageEnd(aMessage) {
   );
 };
 
+// This contains the implementation for the basic IRC protocol covered by RFCs
+// 1459, 2810, 2811, 2812, and 2813
 var rfc2812 = {
   "ERROR": function(aMessage) {
     // ERROR <error message>
@@ -186,11 +194,13 @@ var rfc2812 = {
   "PRIVMSG": function(aMessage) {
     // PRIVMSG <msgtarget> <text to be sent>
     // Display message in conversation
-    this._getConversation(aMessage.params[0]).writeMessage(
-      aMessage.nickname || aMessage.source,
-      aMessage.params[1],
-      {incoming: true}
-    );
+    this._getConversation(isMUCName(aMessage.params[0]) ?
+                            aMessage.params[0] : aMessage.nickname)
+        .writeMessage(
+          aMessage.nickname || aMessage.source,
+          aMessage.params[1],
+          {incoming: true}
+        );
     return [true, ""];
   },
   "QUIT": function(aMessage) {
@@ -230,31 +240,31 @@ var rfc2812 = {
     // Welcome to the Internet Relay Network <nick>!<user>@<host>
     serverMessage.call(this, aMessage);
     this.base.connected();
-    return [false, ""];
+    return [true, ""];
   },
   "002": function(aMessage) { // RPL_YOURHOST
     // Your host is <servername>, running version <ver>
     // XXX Use the host instead of the user for all the "server" messages?
     serverMessage.call(this, aMessage);
-    return [false, ""];
+    return [true, ""];
   },
   "003": function(aMessage) { // RPL_CREATED
     //This server was created <date>
     // XXX parse this date and keep it for some reason? Do we care?
     serverMessage.call(this, aMessage);
-    return [false, ""];
+    return [true, ""];
   },
   "004": function(aMessage) { // RPL_MYINFO
     // <servername> <version> <available user modes> <available channel modes>
     // XXX parse the available modes, let the UI respond and inform the user
     serverMessage.call(this, aMessage);
-    return [false, ""];
+    return [true, ""];
   },
   "005": function(aMessage) { // RPL_BOUNCE
     // Try server <server name>, port <port number>
     // XXX See ISupport documentation
     serverMessage.call(this, aMessage);
-    return [false, ""];
+    return [true, ""];
   },
 
   /*
