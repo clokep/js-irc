@@ -41,7 +41,7 @@ var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
 
-Cu.import("resource://irc-js/ircUtils.jsm");
+Cu.import("resource://irc-js/utils.jsm");
 
 // Some helper functions for very common command results
 function serverMessage(aMessage) {

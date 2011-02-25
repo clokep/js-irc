@@ -41,11 +41,11 @@ var Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
-Cu.import("resource://irc-js/ircCommands.jsm");
-Cu.import("resource://irc-js/ircUtils.jsm");
+Cu.import("resource://irc-js/commands.jsm");
+Cu.import("resource://irc-js/utils.jsm");
 
 // Import specifications
-Cu.import("resource://irc-js/rfc2812.jsm");
+Cu.import("resource://irc-js/irc.jsm");
 var specifications = [rfc2812];
 
 function Chat(aAccount, aName, aNick) {
@@ -404,7 +404,7 @@ Protocol.prototype = {
     "partmsg": {label: "Part message", default: ""} // XXX Unused
   },
 
-  commands: ircCommands,
+  commands: commands,
 
   get chatHasTopic() true,
 

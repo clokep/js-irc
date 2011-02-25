@@ -35,13 +35,13 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["ircAccounts", "ircCommands"];
+var EXPORTED_SYMBOLS = ["ircAccounts", "commands"];
 
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 var Cu = Components.utils;
 
-Cu.import("resource://irc-js/ircUtils.jsm");
+Cu.import("resource://irc-js/utils.jsm");
 
 // This is a list of accounts so we can get a reference to them for commands
 var ircAccounts = {};
@@ -136,7 +136,7 @@ function noParamCommand(aConv, aCommand) {
   return true;
 }
 
-var ircCommands = [
+var commands = [
   // XXX action
   /*{
     name: "action",
