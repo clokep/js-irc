@@ -11,8 +11,7 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is the Instantbird messenging client, released
- * 2011.
+ * The Original Code is the Instantbird messenging client, released 2011.
  *
  * The Initial Developer of the Original Code is
  * Patrick Cloke <clokep@gmail.com>

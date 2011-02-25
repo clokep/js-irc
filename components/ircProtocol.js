@@ -46,7 +46,8 @@ Cu.import("resource://irc-js/utils.jsm");
 
 // Import specifications
 Cu.import("resource://irc-js/irc.jsm");
-var specifications = [rfc2812];
+Cu.import("resource://irc-js/ctcp.jsm");
+var specifications = [ctcp, irc];
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -288,15 +289,14 @@ Account.prototype = {
       return;
 
     let command = message.command.toUpperCase(),
-        handled = false,
-        rawMessage = "";
+        handled = false;
 
     // Loop over each specification set and call the command
     for (let i = 0; i < specifications.length; i++) {
       let spec = specifications[i];
       // If the command exists in the spec, execute it
       if (spec.hasOwnProperty(command))
-        [handled, rawMessage] = spec[command].call(this, message);
+        handled = spec[command].call(this, message);
 
       // Message was handled, cut out early
       if (handled)
@@ -313,10 +313,6 @@ Account.prototype = {
         {error: true}
       );
     }
-
-    // A partial message was returned, call the parser again
-    if (rawMessage.length)
-      this._handleMessage(rawMessage);
   },
 
   _hasConversation: function(aConversationName)
