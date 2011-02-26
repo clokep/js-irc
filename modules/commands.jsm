@@ -135,13 +135,31 @@ function noParamCommand(aConv, aCommand) {
   return true;
 }
 
+function ctcpMessage(aConv, aTarget, aCommand, aMessage) {
+  if (aMessage.length && aTarget.length) {
+    ircAccounts[aConv.account.id]._sendMessage("PRIVMSG", [aTarget,
+                                  "\001" + aCommand + " " + aMessage + "\001"]);
+    return true;
+  }
+  return false;
+}
+
+function targetedMessage(aConv, aCommand, aMessage) {
+  let params = aMessage.split(" ");
+  if (params.length > 1) {
+    params = params[0] + params.slice(1).join(" ");
+    ircAccounts[aConv.account.id]._sendMessage(aCommand, params);
+    return true;
+  }
+  return false;
+}
+
 var commands = [
-  // XXX action
-  /*{
+  {
     name: "action",
     helpString: "action <action to perform>:  Perform an action.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) ctcpMessage(aConv, aConv.name, "ACTION", aMsg)
+  },
   // XXX away -- isn't this handled by core anyway?
   /*{
     name: "away",
@@ -149,12 +167,12 @@ var commands = [
                 "return from being away.",
     run: function(aMsg, aConv) { }
   },*/
-  // XXX ctcp
-  /*{
+  {
     name: "ctcp",
     helpString: "ctcp <nick> <msg>:  Sends ctcp msg to nick.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv)
+      simpleCommand(aConv, "PRIVMSG", "\001" + aMsg + "\001")
+  },
   {
     name: "chanserv",
     helpString: "chanserv <command>:  Send a command to the ChanServ.",
@@ -173,13 +191,12 @@ var commands = [
                 "is moderated (+m). You must be a channel operator to do this.",
     run: function(aMsg, aConv) setMode(aMsg, aConv, "v", false)
   },
-  // XXX invite
-  /*{
+  {
     name: "invite",
     helpString: "invite <nick> [room]: Invite someone to join you in the " +
                 "specified channel, or the current channel.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) targetedMessage(aConv, "INVITE", aMsg)
+  },
   {
     name: "j",
     helpString: "j <room1>[,room2][,...] [key1[,key2][,...]]:  Enter one or " +
@@ -206,24 +223,22 @@ var commands = [
                 "Warning, some servers may disconnect you upon doing this.",
     run: function(aMsg, aConv) noParamCommand("LIST")
   },
-  // XXX me
-  /*{
+  {
     name: "me",
     helpString: "me <action to perform>:  Perform an action.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) ctcpMessage(aConv, aConv.name, "ACTION", aMsg)
+  },
   {
     name: "memoserv",
     helpString: "memoserv <command>:  Send a command to the MemoServ.",
     run: function(aMsg, aConv) privateMessage(aConv, aMsg, "MemoServ")
   },
-  // XXX mode
-  /*{
+  {
     name: "mode",
-    helpString: "mode &lt;+|-&gt;&lt;A-Za-z&gt; &lt;nick|channel&gt;:  Set " +
+    helpString: "mode &lt;nick|channel&gt; &lt;+|-&gt;&lt;A-Za-z&gt;:  Set " +
                 "or unset a channel or user mode.",
-    run: function(aMsg, aConv) simpleCommand(aConv, "MODE", )
-  },*/
+    run: function(aMsg, aConv) targetedMessage(aConv, "MODE", aMsg)
+  },
   {
     name: "msg",
     helpString: "msg <nick> <message>:  Send a private message to a user (as " +
@@ -232,12 +247,12 @@ var commands = [
   },
   // XXX all this does is force the UI to reload the names...which shouldn't be
   // out of date
-  {
+  /*{
     name: "names",
     helpString: "names [channel]:  List the users currently in a channel.",
     run: function(aMsg, aConv)
       simpleCommand(aConv, "NAMES", aMsg || aConv.account.name)
-  },
+  },*/
   {
     name: "nick",
     helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
@@ -256,44 +271,53 @@ var commands = [
     helpString: "nickserv <command>:  Send a command to the NickServ.",
     run: function(aMsg, aConv) privateMessage(aConv, aMsg, "NickServ")
   },
-  // XXX notice
-  /*{
+  {
     name: "notice",
-    helpString: "notice &lt;target&gt;:  Send a notice to a user or channel.",
-    run: function(aMsg, aConv) { }
-  },*/
+    helpString: "notice &lt;target&gt; &lt;message&gt;:  Send a notice to a user or channel.",
+    run: function(aMsg, aConv) targetedMessage(aConv, "NOTICE", aMsg)
+  },
   {
     name: "op",
-    helpString: "op <nick1> [nick2] ... 	Grant channel operator status to " +
+    helpString: "op &lt;nick1&gt; [nick2] ... 	Grant channel operator status to " +
                 "someone. You must be a channel operator to do this.",
     run: function(aMsg, aConv) setMode(aMsg, aConv, "o", true)
   },
   {
     name: "operwall",
-    helpString: "operwall <message>:  If you don't know what this is, you " +
+    helpString: "operwall &lt;message&gt;:  If you don't know what this is, you " +
                 "probably can't use it (sends a command to all connected " +
                 "with the +w flag and all operators on the server.",
     run: function(aMsg, aConv) simpleCommand(aConv, "WALLOPS", aMsg)
   },
   {
     name: "operserv",
-    helpString: "operserv <command>:  Send a command to the OperServ.",
+    helpString: "operserv &lt;command&gt;:  Send a command to the OperServ.",
     run: function(aMsg, aConv) privateMessage(aConv, aMsg, "OperServ")
   },
-  // XXX part
-  /*{
+  {
     name: "part",
     helpString: "part [room] [message]:  Leave the current channel, or a " +
                 "specified channel, with an optional message.",
-    run: function(aMsg, aConv) { }
+    run: function(aMsg, aConv) {
+      let params = aMsg.split(" ");
+      if (params.length >= 2) {
+        return simpleCommand(aConv, "PART", aMsg.params[0]);
+      }
+      return false;
+    }
   },*/
-  // XXX ping
-  /*{
+  {
     name: "ping",
     helpString: "ping [nick]:  Asks how much lag a user (or the server if no " +
                 "user specified) has.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) {
+      if (aMsg.length)
+        return ctcpMessage(aConv, aMsg, "PING", "");
+      // XXX
+      // return simpleCommand(aConv, "PING", ircAccounts[aConv.account.id].)
+      return false; // XXX remove this
+    }
+  },
   {
     name: "query",
     helpString: "query <nick> <message>:  Send a private message to a user " +
@@ -335,18 +359,16 @@ var commands = [
     helpString: "topic [new topic]:  View or change the channel topic.",
     run: function(aMsg, aConv) simpleCommand(aConv, "TOPIC", aMsg)
   },
-  // XXX umode
-  /*{
+  {
     name: "umode",
     helpString: "umode &lt;+|-&gt;&lt;A-Za-z&gt;:  Set or unset a user mode.",
-    run: function(aMsg, aConv) { }
-  },*/
-  // XXX version
-  /*{
+    run: function(aMsg, aConv) simpleCommand(aConv, "MODE", aMsg)
+  },
+  {
     name: "version",
     helpString: "version [nick]:  Send CTCP VERSION request to a user.",
-    run: function(aMsg, aConv) { }
-  },*/
+    run: function(aMsg, aConv) ctcpMessage(aConv, aMsg, "VERSION", "")
+  },
   {
     name: "voice",
     helpString: "voice <nick1> [nick2] ...:  Grant channel voice status to " +

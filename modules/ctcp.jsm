@@ -163,6 +163,7 @@ var _dcc = {
 
   //"BDCC": function(aMessage) false, // ??? Bitorrent DCC?
 
+  // XXX Also CHAT wboard for whiteboard
   "CHAT": function(aMessage) false,
 
   "GET": function(aMessage) false,
@@ -172,6 +173,10 @@ var _dcc = {
   "OFFER": function(aMessage) false,
 
   "RESUME": function(aMessage) false,
+
+  "REVERSE": function(aMessage) false,
+
+  "RSEND": function(aMessage) false,
 
   "SEND": function(aMessage) false,
 
