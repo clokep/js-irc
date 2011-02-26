@@ -305,7 +305,7 @@ var commands = [
       }
       return false;
     }
-  },*/
+  },
   {
     name: "ping",
     helpString: "ping [nick]:  Asks how much lag a user (or the server if no " +
