@@ -36,25 +36,39 @@
 
 var EXPORTED_SYMBOLS = ["ctcp"];
 
+var Cc = Components.classes;
+var Ci = Components.interfaces;
+var Cu = Components.utils;
+
+Cu.import("resource://irc-js/utils.jsm");
+
 function ctcpParse(aMessage) {
+  dump("Start parse");
+  // CTCP messages are in the last param of the IRC message
   let rawMessage = aMessage.params.slice(-1);
 
   // XXX Split this into multiple messages if applicable
-  let start = 0, end = 0;
+  let start = 0, end;
   let ctcpStrings = [];
   while (start < rawMessage.length) {
     // Find the first and next marker
     start = rawMessage.indexOf("\001", start);
     end = rawMessage.indexOf("\001", start + 1);
 
+    dump(start + "\n" + end + "\n" + rawMessage);
+
     // Ignore the start and end markers when taking the slice
     if (start != -1 && end != -1) {
       ctcpStrings.push(rawMessage.slice(start + 1, end));
-    }
+    } else
+      break;
 
     // Move past this point and look again
     start = end + 1;
+    break; // XXX debug
   }
+
+  dump(JSON.stringify(ctcpStrings));
 
   // XXX do something w/ rawMessage
 
@@ -71,9 +85,12 @@ function ctcpParse(aMessage) {
     return unquoted.replace(/\134a/g, /\001/).replace(/\134\134/g, "\134");
   });
 
-
+  // Create a new message type object for each one
   return ctcpStrings.map(function(aString) {
-    return this.ctcpString = aString;
+    this.rawCtcpMessage = aString;
+    let params = aString.split(" ")
+    this.ctcpType = params.shift(); // Do not capitalize, case sensitive
+    this.ctcpParam = params.slice(1).join(" ");
   }, aMessage);
 }
 
@@ -82,7 +99,13 @@ var ctcp = {
   "PRIVMSG": function (aMessage) {
     // Check if there's a CTCP message
     if (aMessage.params[1][0] == "\001") {
-      let messages = ctcpParse(aMessage);
+      let messages = ctcpParse.call(this, aMessage);
+      messages.forEach(function(aMessage) {
+        if (_ctcp.hasOwnProperty(aMessage.ctcpType))
+          return _ctcp[aMessage.ctcpType].call(this, message);
+        // XXX Throw an error (reply w/ NOTICE ERRMSG)
+        return false;
+      });
       return true;
     }
     return false;
@@ -90,13 +113,81 @@ var ctcp = {
   //
   "NOTICE": function(aMessage) {
     return false;
-  },
-
-  "ACTION": function(aMessage) {
-    Components.utils.reportError("HERE!");
-  },
-
-  "VERSION": function(aMessage) {
-    return false;
   }
+}
+
+var _ctcp = {
+  "ACTION": function(aMessage) {
+    // ACTION <text>
+    // Display message in conversation
+    this._getConversation(isMUCName(aMessage.params[0]) ?
+                            aMessage.params[0] : aMessage.nickname)
+        .writeMessage(
+          aMessage.nickname || aMessage.source,
+          "/me " + ctcpString,
+          {incoming: true}
+        );
+    return true;
+  },
+
+  "DCC": function(aMessage) false,
+
+  // Used when an error needs to be replied with.
+  "ERRMSG": function(aMessage) false,
+
+  // Returns the user's full name, and idle time.
+  "FINGER": function(aMessage) false,
+
+  // Dynamic master index of what a client knows.
+  "CLIENTINFO": function(aMessage) false,
+
+  // Used to measure the delay of the IRC network between clients.
+  "PING": function(aMessage) false,
+
+  "SED": function(aMessage) false,
+
+  // Where to obtain a copy of a client.
+  "SOURCE": function(aMessage) false,
+
+  // Gets the local date and time from other clients.
+  "TIME": function(aMessage) false,
+
+  // A string set by the user (never the client coder)
+  "USERINFO": function(aMessage) false,
+
+  // The version and type of the client.
+  "VERSION": function(aMessage) false,
+
+  "XDCC": function(aMessage) false
+}
+
+var _dcc = {
+  "ACCEPT": function(aMessage) false,
+
+  //"BDCC": function(aMessage) false, // ??? Bitorrent DCC?
+
+  "CHAT": function(aMessage) false,
+
+  "GET": function(aMessage) false,
+
+  "FILE": function(aMessage) false,
+
+  "OFFER": function(aMessage) false,
+
+  "RESUME": function(aMessage) false,
+
+  "SEND": function(aMessage) false,
+
+  "TALK": function(aMessage) false,
+
+  "TGET": function(aMessage) false,
+
+  "TSEND": function(aMessage) false,
+
+  "XMIT": function(aMessage) false,
+}
+
+var _xdcc = {
+  "LIST": function(aMessage) false,
+  "SEND": function(aMessage) false
 }
