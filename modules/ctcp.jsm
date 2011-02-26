@@ -97,6 +97,7 @@ var ctcp = {
     if (aMessage.params[1][0] == "\001") {
       let messages = ctcpParse.call(this, aMessage);
       messages.forEach(function(aMessage) {
+        dump(JSON.stringify(aMessage));
         if (_ctcp.hasOwnProperty(aMessage.ctcpType))
           return _ctcp[aMessage.ctcpType].call(this, aMessage);
         // XXX Throw an error (reply w/ NOTICE ERRMSG)
@@ -120,7 +121,7 @@ var _ctcp = {
                             aMessage.params[0] : aMessage.nickname)
         .writeMessage(
           aMessage.nickname || aMessage.source,
-          "/me " + ctcpString,
+          "/me " + aMessage.ctcpParam,
           {incoming: true}
         );
     return true;
