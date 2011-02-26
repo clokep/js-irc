@@ -234,53 +234,11 @@ Account.prototype = {
 
   // Private functions
   /*
-   * See section 2.3 of RFC 2812
-   *
-   * parseMessage takes the message string and pulls useful information out. It
-   * returns a message object which contains:
-   *   source..........source of the message
-   *   nickname........user's nickname
-   *   user............user's username
-   *   host............user's hostname
-   *   command.........the command being implemented
-   *   params..........array of parameters
-   */
-  // See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
-  _parseMessage: function(aData) {
-    let message = {"rawMessage": aData};
-    let temp;
-
-    // Splits the raw string into four parts (the second is required)
-    //   source
-    //   command
-    //   [parameter]
-    //   [:last paramter]
-    if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
-      // Assume message is from the server if not specified
-      message.source = temp[1] || this._server;
-      message.command = temp[2];
-      // Space separated parameters
-      message.params = temp[3] ? temp[3].trim().split(/ +/) : [];
-      if (temp[4]) // Last parameter can contain spaces
-        message.params.push(temp[4]);
-
-      // The source string can be split into multiple parts as:
-      //   :(server|nickname[[!user]@host]
-      if ((temp = message.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
-        message.nickname = temp[1];
-        message.user = temp[2] || null; // Optional
-        message.host = temp[3] || null; // Optional
-      }
-    }
-    return message;
-  },
-
-  /*
    * Implement Section 5 of RFC 2812
    */
   // Remove aConversation blah blah
   _handleMessage: function(aRawMessage) {
-    var message = this._parseMessage(aRawMessage);
+    var message = ircParse.call(this, aRawMessage);
 
     // XXX For debug only
     dump(JSON.stringify(message));
