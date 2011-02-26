@@ -43,19 +43,16 @@ var Cu = Components.utils;
 Cu.import("resource://irc-js/utils.jsm");
 
 function ctcpParse(aMessage) {
-  dump("Start parse");
   // CTCP messages are in the last param of the IRC message
-  let rawMessage = aMessage.params.slice(-1);
+  var rawMessage = aMessage.params.slice(-1)[0];
 
   // XXX Split this into multiple messages if applicable
-  let start = 0, end;
-  let ctcpStrings = [];
+  var start = 0, end;
+  var ctcpStrings = [];
   while (start < rawMessage.length) {
     // Find the first and next marker
     start = rawMessage.indexOf("\001", start);
     end = rawMessage.indexOf("\001", start + 1);
-
-    dump(start + "\n" + end + "\n" + rawMessage);
 
     // Ignore the start and end markers when taking the slice
     if (start != -1 && end != -1) {
@@ -68,29 +65,28 @@ function ctcpParse(aMessage) {
     break; // XXX debug
   }
 
-  dump(JSON.stringify(ctcpStrings));
-
-  // XXX do something w/ rawMessage
+  // XXX do something w/ the leftover rawMessage
 
   ctcpStrings = ctcpStrings.map(function(aString) {
     // Dequote (low level)
     // XXX do these need to be explicitly replaced?
     // Replace quote char (\020) followed by 0, n, r or \020 with the proper
     // real character (see Low Level Quoting)
-    let unquoted = rawMessage.replace(/\0200/g, "\0").replace(/\020n/g, "\n")
-                             .replace(/\020r/g, "\r").replace(/\020\020/g, "\020");
+    var unquoted = aString.replace(/\0200/g, "\0").replace(/\020n/g, "\n")
+                          .replace(/\020r/g, "\r").replace(/\020\020/g, "\020");
 
     // Dequote (high level)
     // Replace quote char (\134) followed by a or \134 with \001 or \134
-    return unquoted.replace(/\134a/g, /\001/).replace(/\134\134/g, "\134");
+    return unquoted.replace(/\134a/g, "\001").replace(/\134\134/g, "\134");
   });
 
   // Create a new message type object for each one
   return ctcpStrings.map(function(aString) {
     this.rawCtcpMessage = aString;
-    let params = aString.split(" ")
+    var params = aString.split(" ")
     this.ctcpType = params.shift(); // Do not capitalize, case sensitive
-    this.ctcpParam = params.slice(1).join(" ");
+    this.ctcpParam = params.join(" ");
+    return this;
   }, aMessage);
 }
 
@@ -102,10 +98,10 @@ var ctcp = {
       let messages = ctcpParse.call(this, aMessage);
       messages.forEach(function(aMessage) {
         if (_ctcp.hasOwnProperty(aMessage.ctcpType))
-          return _ctcp[aMessage.ctcpType].call(this, message);
+          return _ctcp[aMessage.ctcpType].call(this, aMessage);
         // XXX Throw an error (reply w/ NOTICE ERRMSG)
         return false;
-      });
+      }, this);
       return true;
     }
     return false;
