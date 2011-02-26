@@ -2,7 +2,7 @@ A brief history of specifications is given below.  Websites are given where the
 official specification lives, but they have all been copied into this directory
 for convenience.  Note that some of these links may be broken.
 
-See RFC protocols (http://www.irchelp.org/irchelp/rfc/):
+RFCs (http://www.irchelp.org/irchelp/rfc/):
   RFC 1459 (original RFC; superseded by RFC 2810 -- RFC 2813)
     http://tools.ietf.org/html/rfc1459
   RFC 2810 (IRC architecture)
@@ -40,7 +40,7 @@ File Transfer / CTCP extensions:
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-negotiation-00.txt
     This doesn't seem done
 
-Extension Support
+Extension Support:
   ISupport
     http://tools.ietf.org/html/draft-brocklesby-irc-isupport-03
     Response code 005; supported by most servers
@@ -63,9 +63,9 @@ Other:
     http://www.visualirc.net/tech-wboard.php
   IRCX (extends RFC 1459)
     http://tools.ietf.org/html/draft-pfenning-irc-extensions-04
-    Microsoft's extension to IRC for
+    Microsoft's extension to IRC
 
-URL Scheme
+URL Scheme:
   irc:
     http://tools.ietf.org/html/draft-mirashi-url-irc-01
   irc: and ircs:
