@@ -82,11 +82,19 @@ function joinCommand(aMsg, aConv) {
 // Kick a user from a channel
 // aMsg is <user> [comment]
 function kickCommand(aMsg, aConv) {
+  let params = [];
+  let offset = aMsg.indexOf(" ");
+
   if (aMsg.length) {
-    let params = aMsg.split(" ");
-    params.unshift(aConv.name);
+    if (offset == -1)
+      params = [aMsg];
+    else
+      params = [aMsg.slice(0, offset), aMsg.slice(offset + 1)];
+
     // params is (<channel>, <user>, [comment])
-    ircAccounts[aConv.account.id]._sendMessage("KICK", params);
+    params.unshift(aConv.name);
+
+    ircAccounts[aConv.account.id]._sendMessage("PART", params);
     return true;
   }
   return false;
@@ -147,7 +155,7 @@ function ctcpMessage(aConv, aTarget, aCommand, aMessage) {
 function targetedMessage(aConv, aCommand, aMessage) {
   let params = aMessage.split(" ");
   if (params.length > 1) {
-    params = params[0] + params.slice(1).join(" ");
+    params = [params[0], params.slice(1).join(" ")];
     ircAccounts[aConv.account.id]._sendMessage(aCommand, params);
     return true;
   }
@@ -296,9 +304,22 @@ var commands = [
   },
   {
     name: "part",
-    helpString: "part [room] [message]:  Leave the current channel, or a " +
+    helpString: "part [room [message]]:  Leave the current channel, or a " +
                 "specified channel, with an optional message.",
-    run: function(aMsg, aConv) targetedMessage(aConv, "PART", aMsg)
+    run: function(aMsg, aConv) {
+      let params = [];
+      let offset = aMsg.indexOf(" ");
+
+      if (!aMsg.length)
+        params.unshift(aConv.name);
+      else if (offset != -1)
+        params = [aMsg.slice(0, offset), aMsg.slice(offset + 1)];
+      else
+        params = [aMsg];
+
+      ircAccounts[aConv.account.id]._sendMessage("PART", params);
+      return true;
+    }
   },
   {
     name: "ping",
