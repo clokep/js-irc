@@ -125,8 +125,13 @@ var irc = {
     // Add the buddy to each channel
     for each (let channelName in aMessage.params[0].split(",")) {
       let conversation = this._getConversation(channelName);
-      if (aMessage.nickname != this._nickname) {
-        // Don't do anything if you join, RPL_NAMES takes care of that case
+      if (normalize(aMessage.nickname) == normalize(this._nickname)) {
+        // If you join, clear the participants list to avoid errors w/ repeated
+        // participants
+        dump("removing participants");
+        conversation._removeAllParticipants();
+      } else {
+        // Don't worry about adding ourself, RPL_NAMES takes care of that case
         conversation._getParticipant(aMessage.nickname, true);
         let joinMessage = aMessage.nickname + " [<i>" + aMessage.source +
                           "</i>] entered the room.";
@@ -157,7 +162,7 @@ var irc = {
   },
   "MODE": function(aMessage) {
     // MODE <nickname> *( ( "+" / "-") *( "i" / "w" / "o" / "O" / "r" ) )
-    if (aMessage.params.length == 3) {
+    if (aMessage.params.length >= 3) {
       // Update the mode of a ConvChatBuddy & display in UI
       let conversation = this._getConversation(aMessage.params[0]);
       let convChatBuddy = conversation._getParticipant(aMessage.params[2]);
@@ -211,17 +216,15 @@ var irc = {
         continue; // Handle when we closed the window
       let conversation = this._getConversation(channelName);
       let partMessage;
-      if (aMessage.nickname == this._nickname) // XXX remove all buddies?
+      if (aMessage.nickname == this._nickname)
         partMessage = "You have left the room (Part";
       else
         partMessage = aMessage.nickname + " has left the room (Part";
       // If a part message was included, show it
       if (aMessage.params.length == 2)
-        partMessage += ": function(aMessage) { " + aMessage.params[1];
+        partMessage += ": " + aMessage.params[1];
       partMessage += ").";
-      conversation.writeMessage(aMessage.source,
-                                partMessage,
-                                {system: true});
+      conversation.writeMessage(aMessage.source, partMessage, {system: true});
       conversation._removeParticipant(aMessage.nickname);
     }
     return true;
@@ -270,6 +273,7 @@ var irc = {
   "TOPIC": function(aMessage) {
     // TOPIC <channel> [ <topic> ]
     // Show topic as a message
+    // XXX update the topic in the conversation binding
     this._getConversation(aMessage.params[0]).writeMessage(
       aMessage.nickname || aMessage.source,
       aMessage.nickname + " has changed the topic to: " + aMessage.params[1],
@@ -719,7 +723,7 @@ var irc = {
     return false;
   },
   "332": function(aMessage) { // RPL_TOPIC
-    // <channel> :topic
+    // <channel> :<topic>
     // Update the topic UI
     let conversation = this._getConversation(aMessage.params[1]);
     conversation.setTopic(aMessage.params[2]);
@@ -730,7 +734,15 @@ var irc = {
     return true;
   },
   "333": function(aMessage) { // XXX nonstandard
-    return false;
+    // <channel> <nickname> <time>
+    let conversation = this._getConversation(aMessage.params[1]);
+    conversation.setTopic(null, aMessage.params[2]);
+    // Send the message
+    var topicSetterMessage = "The topic for " + conversation.name + " was " +
+                             "set by " + aMessage.params[2] + " at " +
+                              new Date(parseInt(aMessage.params[3]));
+    conversation.writeMessage(null, topicSetterMessage, {system: true});
+    return true;
   },
 
   /*

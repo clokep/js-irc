@@ -298,13 +298,7 @@ var commands = [
     name: "part",
     helpString: "part [room] [message]:  Leave the current channel, or a " +
                 "specified channel, with an optional message.",
-    run: function(aMsg, aConv) {
-      let params = aMsg.split(" ");
-      if (params.length >= 2) {
-        return simpleCommand(aConv, "PART", aMsg.params[0]);
-      }
-      return false;
-    }
+    run: function(aMsg, aConv) targetedMessage(aConv, "PART", aMsg)
   },
   {
     name: "ping",

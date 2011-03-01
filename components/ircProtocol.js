@@ -70,7 +70,7 @@ Chat.prototype = {
   },
 
   setTopic: function(aTopic, aTopicSetter) {
-    this._topic = aTopic;
+    this._topic = aTopic || this._topic;
     this._topicSetter = aTopicSetter;
 
     this.notifyObservers(null, "chat-update-topic");
@@ -103,6 +103,20 @@ Chat.prototype = {
                            "chat-buddy-remove");
       delete this._participants[normalizedNick];
     }
+  },
+  // Use this before joining to avoid errors of trying to re-add an existing
+  // participant
+  _removeAllParticipants: function() {
+    let stringNicknames = [];
+    for (let nickname in this._participants) {
+      let stringNickname = Cc["@mozilla.org/supports-string;1"]
+                              .createInstance(Ci.nsISupportsString);
+      stringNickname.data = nickname;
+      stringNicknames.push(stringNickname);
+    }
+    this.notifyObservers(new nsSimpleEnumerator(stringNicknames),
+                         "chat-buddy-remove");
+    this._participants = {};
   }
 };
 Chat.prototype.__proto__ = GenericConvChatPrototype;
