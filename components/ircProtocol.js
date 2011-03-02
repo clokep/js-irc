@@ -168,6 +168,27 @@ Conversation.prototype = {
 };
 Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
+function EventSink(aAccount) {
+  this._account = aAccount;
+}
+EventSink.prototype = {
+  onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) {
+    let host = aTransport.host;
+    let port = aTransport.port;
+    let account = this._account;
+
+    if (aStatus == Ci.nsISocketTransport.STATUS_RESOLVING)
+      account.base.connecting("Resolving DNS record.")
+    else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTING_TO)
+      account.base.connecting("Connecting to " + host + ".");
+    else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTED_TO)
+      account.base.connected("Connected to " + host + " on " + port + ".");
+    /*STATUS_SENDING_TO
+    STATUS_WAITING_FOR
+    STATUS_RECEIVING_FROM*/
+  }
+}
+
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
   this._conversations = {};
@@ -189,23 +210,6 @@ Account.prototype = {
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
-  _sink: {
-    onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) {
-      let host = aTransport.host;
-      let port = aTransport.port;
-
-      if (aStatus == Ci.nsISocketTransport.STATUS_RESOLVING)
-        this.base.connecting("Resolving DNS record.")
-      else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTING_TO)
-        this.base.connecting("Connecting to " + host + ".");
-      else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTED_TO)
-        this.base.connected("Connected to " + host + " on " + port + ".");
-      /*STATUS_SENDING_TO
-      STATUS_WAITING_FOR
-      STATUS_RECEIVING_FROM*/
-    }
-  },
-
   statusChanged: function(aStatusType, aMsg) {
     dump(aStatusType + "\r\n<" + aMsg + ">");
     if (aStatusType == Ci.purpleICoreService.STATUS_OFFLINE ||
@@ -224,7 +228,7 @@ Account.prototype = {
     // Register a listener to get information on the status
     let threadManager = Cc["@mozilla.org/thread-manager;1"]
                         .getService(Ci.nsIThreadManager);
-    this._socket.setEventSink(this._sink, threadManager.currentThread);
+    this._socket.setEventSink(new EventSink(this), threadManager.currentThread);
     this._socket.open();
     this._socket.read(/\r\n/, this._handleMessage, this); // Start reading
 
