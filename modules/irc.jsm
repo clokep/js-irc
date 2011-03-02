@@ -36,9 +36,7 @@
 
 var EXPORTED_SYMBOLS = ["ircParse", "irc"];
 
-var Cc = Components.classes;
-var Ci = Components.interfaces;
-var Cu = Components.utils;
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://irc-js/utils.jsm");
 

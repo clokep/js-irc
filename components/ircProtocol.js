@@ -34,9 +34,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var Cc = Components.classes;
-var Ci = Components.interfaces;
-var Cu = Components.utils;
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
@@ -191,6 +189,23 @@ Account.prototype = {
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
+  _sink: {
+    onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) {
+      let host = aTransport.host;
+      let port = aTransport.port;
+
+      if (aStatus == Ci.nsISocketTransport.STATUS_RESOLVING)
+        this.base.connecting("Resolving DNS record.")
+      else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTING_TO)
+        this.base.connecting("Connecting to " + host + ".");
+      else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTED_TO)
+        this.base.connected("Connected to " + host + " on " + port + ".");
+      /*STATUS_SENDING_TO
+      STATUS_WAITING_FOR
+      STATUS_RECEIVING_FROM*/
+    }
+  },
+
   statusChanged: function(aStatusType, aMsg) {
     dump(aStatusType + "\r\n<" + aMsg + ">");
     if (aStatusType == Ci.purpleICoreService.STATUS_OFFLINE ||
@@ -204,7 +219,12 @@ Account.prototype = {
     this.base.connecting();
 
     // Create a new socket for the connection
-    this._socket = new Socket(this._server, this._port, this._ssl, null);
+    this._socket = new Socket(this._server, this._port, this._ssl, null,
+                              this._sink);
+    // Register a listener to get information on the status
+    let threadManager = Cc["@mozilla.org/thread-manager;1"]
+                        .getService(Ci.nsIThreadManager);
+    this._socket.setEventSink(this._sink, threadManager.currentThread);
     this._socket.open();
     this._socket.read(/\r\n/, this._handleMessage, this); // Start reading
 

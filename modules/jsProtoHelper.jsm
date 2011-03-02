@@ -844,7 +844,6 @@ function Socket(aHostname, aPort, aSSL, aProxy) {
                                                    this._hostname, // Host
                                                    this._port, // Port
                                                    this._proxy); // XXX Proxy info
-  // XXX Add a socketTransport listener so we can give better info to this.base.connecting()
 
   this._outputStream = this._socketTransport.openOutputStream(0, // flags
                                                               0, // Use default segment size
@@ -856,6 +855,8 @@ function Socket(aHostname, aPort, aSSL, aProxy) {
   this._scriptableInputStream = Cc["@mozilla.org/scriptableinputstream;1"]
                                   .createInstance(Ci.nsIScriptableInputStream);
   this._scriptableInputStream.init(this._inputStream);
+
+  this._listeners = [];
 }
 Socket.prototype = {
   _socketTransport: null,
@@ -865,8 +866,11 @@ Socket.prototype = {
   _inputStreamBuffer: "",
   _pump: null,
 
-  _separator: null,
+  _delimiter: null,
   _bytes: null,
+
+  setEventSink: function(aSink, aThread)
+    this._socketTransport.setEventSink(aSink, aThread),
 
   open: function() {
     this._pump = Cc["@mozilla.org/network/input-stream-pump;1"]
@@ -882,9 +886,14 @@ Socket.prototype = {
     // read aLength bytes from the socket and return them.
     // XXX What should it do when there's not enough available data?
   },*/
+
+  addListener: function(aListener, aDelimiter) {
+
+  },
+
   // Start reading from the socket
   read: function(aSeparator, aDataHandlerCallback, aDataHandlerThis) {
-    this._separator = aSeparator;
+    this._delimiter = aSeparator;
     this._dataHandlerCallback = aDataHandlerCallback;
     this._dataHandlerThis = aDataHandlerThis;
     this._pump.asyncRead(this, null);
@@ -913,7 +922,7 @@ Socket.prototype = {
   onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
     let data =
       this._inputStreamBuffer + this._scriptableInputStream.read(aCount);
-    data = data.split(this._separator);
+    data = data.split(this._delimiter);
 
     // Store the (possible) incomplete part
     this._inputStreamBuffer = data.pop();
