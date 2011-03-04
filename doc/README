@@ -54,9 +54,33 @@ Extension Support:
 Authentication:
   SASL authentication (PLAIN and BLOWFISH)
     http://hg.atheme.org/atheme/atheme/raw-file/tip/doc/SASL
+      Note: amlsbGVzAGppbGxlcwBzZXNhbWU= is base64 encoded jillesjillessesame
     Depends on IRC Capabilities
+    Simple Authentication and Security Layer (SASL)
+      http://tools.ietf.org/html/rfc2222 (obsolete)
+      http://tools.ietf.org/html/rfc4422
+    The PLAIN Simple Authentication and Security Layer (SASL) Mechanism
+      http://tools.ietf.org/html/rfc2595 (obsolete)
+      http://tools.ietf.org/html/rfc4616
   NickServ
   Auth?
+
+Services:
+  IRC+ (http://irc-plus.org/en/ and http://about.psyc.eu/IRCPLUS)
+    IRC+ Conference Control Protocol
+      http://www.irc-plus.org/specs/confctrl-draft.html
+    IRC+ Identity Protocol
+      http://www.irc-plus.org/specs/identity-draft.html
+    IRC Subscriptions Protocol
+      http://www.irc-plus.org/specs/subscriptions-draft.html
+  Anope
+    http://www.anope.org/docgen/1.8/en_us/
+
+URL Scheme:
+  irc:
+    http://tools.ietf.org/html/draft-mirashi-url-irc-01
+  irc: and ircs:
+    http://tools.ietf.org/html/draft-butcher-irc-url-04
 
 Other:
   DCC Whiteboard Specification
@@ -64,9 +88,13 @@ Other:
   IRCX (extends RFC 1459)
     http://tools.ietf.org/html/draft-pfenning-irc-extensions-04
     Microsoft's extension to IRC
-
-URL Scheme:
-  irc:
-    http://tools.ietf.org/html/draft-mirashi-url-irc-01
-  irc: and ircs:
-    http://tools.ietf.org/html/draft-butcher-irc-url-04
+  MONITOR
+    http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/monitor.txt
+  User Mode +g
+    http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/modeg.txt
+  Services compatibility
+    http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/services.txt
+  Account-Notify client capability specification
+    http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/account-notify.txt
+  Target change for Messages
+    http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/tgchange.txt
