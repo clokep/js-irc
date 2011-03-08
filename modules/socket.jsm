@@ -144,7 +144,7 @@ BadCertHandler.prototype = {
  *        yourself in the foot on some versions - let the code handle
  *        the choice unless you know you need binary.
  */
-function CBSConnection (binary) {
+function CBSConnection(binary) {
   var sockServiceClass = Cc["@mozilla.org/network/socket-transport-service;1"];
 
   if (!sockServiceClass)
