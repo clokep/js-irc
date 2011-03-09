@@ -3,7 +3,7 @@ official specification lives, but they have all been copied into this directory
 for convenience.  Note that some of these links may be broken.
 
 RFCs (http://www.irchelp.org/irchelp/rfc/):
-  RFC 1459 (original RFC; superseded by RFC 2810 -- RFC 2813)
+  RFC 1459 (original RFC; superseded by RFC 2810 - RFC 2813)
     http://tools.ietf.org/html/rfc1459
   RFC 2810 (IRC architecture)
     http://tools.ietf.org/html/rfc2810
@@ -28,14 +28,16 @@ File Transfer / CTCP extensions:
     http://www.visualirc.net/tech-tdcc.php
   RDCC / DCC REVERSE / DCC RSEND / Reverse/Firewall DCC / FSERVs
   XDCC (eXtended DCC)
+    http://xa.bi/files/irc/xdcc.3.3.0b.irc
   CTCP/2
     http://www.invlogic.com/irc/ctcp2_intro.html
   SDCC / DCC SCHAT (Secure DCC)
+  DCC Voice
   See http://www.kvirc.de/docu/doc_dcc_connection.html for an overall comparison
   and explanation of the extensions to DCC.
 
   DCC2 (superseds DCC, CTCP, updated CTCP, CTCP/2) -- http://www.dcc2.org/
-    http://www.ietf.org/proceedings/61/IDs/draft-smith-irc-dcc2-negotiation-00.txt
+    http://tools.ietf.org/html/draft-smith-irc-dcc2-negotiation-00
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-files-00.txt
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-negotiation-00.txt
     This doesn't seem done
