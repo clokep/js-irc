@@ -47,6 +47,8 @@ Cu.import("resource://irc-js/irc.jsm");
 Cu.import("resource://irc-js/ctcp.jsm");
 var specifications = [ctcp, irc];
 
+Cu.import("resource://irc-js/mozSocket.jsm");
+
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
 }
@@ -168,26 +170,10 @@ Conversation.prototype = {
 };
 Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
-function EventSink(aAccount) {
-  this._account = aAccount;
+function sock(aAccount, aOnDataReceived) {
+  this.onDataReceived = aOnDataReceived.bind(aAccount);
 }
-EventSink.prototype = {
-  onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) {
-    let host = aTransport.host;
-    let port = aTransport.port;
-    let account = this._account;
-
-    if (aStatus == Ci.nsISocketTransport.STATUS_RESOLVING)
-      account.base.connecting("Resolving DNS record.")
-    else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTING_TO)
-      account.base.connecting("Connecting to " + host + ".");
-    else if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTED_TO)
-      account.base.connected("Connected to " + host + " on " + port + ".");
-    /*STATUS_SENDING_TO
-    STATUS_WAITING_FOR
-    STATUS_RECEIVING_FROM*/
-  }
-}
+sock.prototype.__proto__ = mozSocket;
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
@@ -222,15 +208,8 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    // Create a new socket for the connection
-    this._socket = new Socket(this._server, this._port, this._ssl, null,
-                              this._sink);
-    // Register a listener to get information on the status
-    let threadManager = Cc["@mozilla.org/thread-manager;1"]
-                        .getService(Ci.nsIThreadManager);
-    this._socket.setEventSink(new EventSink(this), threadManager.currentThread);
-    this._socket.open();
-    this._socket.read(/\r\n/, this._handleMessage, this); // Start reading
+    this._socket = new sock(this, this._handleMessage);
+    this._socket.connect(this._server, this._port, this._ssl, null, false, "\r\n");
 
     this._connectionRegistration();
   },
@@ -348,7 +327,7 @@ Account.prototype = {
     // XXX should check length of aMessage?
     message += "\r\n";
     dump("Sending... <" + message.trim() + ">");
-    this._socket.write(message);
+    this._socket.send(message);
   },
 
   // Implement section 3.1 of RFC 2812

@@ -1,237 +1,298 @@
 /*
-The contents of this file are subject to the Mozilla Public
-License Version 1.1 (the "License"); you may not use this file
-except in compliance with the License. You may obtain a copy of
-the License at http://www.mozilla.org/MPL/
+ * The contents of this file are subject to the Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of
+ * the License at http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS
+ * IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * rights and limitations under the License.
+ *
+ * The Original Code is JSIRC Library
+ *
+ * The Initial Developer of the Original Code is New Dimensions Consulting, Inc.
+ *
+ * Portions created by the Initial Developer are Copyright (C) 1999
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *   Robert Ginda, <rginda@ndcico.com>, original author
+ *   Peter Van der Beken, <peter.vanderbeken@pandora.be>, necko-only version
+ *   Stephen Clavering <mozilla@clav.me.uk>, extensively rewritten for
+ *     MSNMessenger (http://msnmsgr.mozdev.org/)
+ *   Patrick Cloke, <clokep@gmail.com>, updated, extended and generalized for
+ *     Instantbird (http://www.instantbird.com)
+ */
 
-Software distributed under the License is distributed on an "AS
-IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
-implied. See the License for the specific language governing
-rights and limitations under the License.
+/*
+ * Combines a lot of the Mozilla networking interfaces into a sane interface for
+ * simple(r) use of sockets code.
+ *
+ * This implements nsIServerSocketListener, nsIStreamListener,
+ * nsIRequestObserver, and nsITransportEventSink.
+ * This uses nsISocketTransportServices, nsIServerSocket, nsIThreadManager,
+ * nsIBinaryInputStream, nsIScriptableInputStream, nsIInputStreamPump
+ *
+ * High-level methods:
+ *   .connect(host, port[, ("ssl" | "tls") [, proxy[, mode]]])
+ *   .disconnect()
+ *   .listen(port)
+ *   .send(data, timeout)
+ * High-level properties:
+ *   .isConnected
+ *
+ * Users should "subclass" this object, i.e. set their .__proto__ to be it. And
+ * then implement:
+ *   onConnectionHeard()
+ *   onConnectionTimedOut()
+ *   onConnectionReset()
+ *   onDataReceived(data)
+ *   onBinaryDataReceived(data, length)
+ */
 
-The Original Code is JSIRC Library
+var EXPORTED_SYMBOLS = ["mozSocket"];
 
-The Initial Developer of the Original Code is New Dimensions Consulting, Inc.
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+Cu.import("resource:///modules/imServices.jsm");
 
-Portions created by the Initial Developer are Copyright (C) 1999
-the Initial Developer. All Rights Reserved.
+// Network errors see: netwerk/base/public/nsNetError.h
+const NS_ERROR_MODULE_NETWORK = 2152398848;
+const NS_ERROR_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 13;
+const NS_ERROR_NET_TIMEOUT = NS_ERROR_MODULE_NETWORK + 14;
+const NS_ERROR_NET_RESET = NS_ERROR_MODULE_NETWORK + 20;
+const NS_ERROR_UNKNOWN_HOST = NS_ERROR_MODULE_NETWORK + 30;
+const NS_ERROR_UNKNOWN_PROXY_HOST = NS_ERROR_MODULE_NETWORK + 42;
+const NS_ERROR_PROXY_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 72;
 
-Contributor(s):
-  Robert Ginda, rginda@ndcico.com, original author
-  Peter Van der Beken, peter.vanderbeken@pandora.be, necko-only version
-  Stephen Clavering <mozilla@clav.me.uk>, extensively rewritten for MSNMessenger
-*/
-
-// Represents a connection to a Dispatch Server, Notification Server, or Switchboard.
-// High-level interface for use by ClientConnection and MSNSession is:
-//     .connect(host, port)
-//     .disconnect()
-//     .sendMsg(msg, body)
-//       msg: an array of strings, which will be joined with " " chars
-//       body: an optional "payload" for the message.  If present, it's length
-//         will be appended to the msg array
-//     .isConnected [boolean field]
-//     (Also nsIStreamListener, and thus nsIRequestObserver, for internal use.)
-// Users should "subclass" this object, i.e. set their .__proto__ to be it.
-// Then implement:
-//     onProtocolMessageReceived(msg, payload)
-//       msg: an array of string tokens (which were space-separated)
-//       payload: a string blob, or null (depending on message type)
-// And optionally:
-//    onConnectionTimedOut()
-
-const BaseConnection = {
-  isConnected: false,
+const mozSocket = {
   binaryMode: false,
+  security: [],
+  proxy: null,
+  isConnected: false,
 
-  // Commands which *when received by us* have a payload: a multi-line blob of
-  // data whose length is given by the last element of the command.  This list
-  // must not include commands like QRY, which have a payload when sent by us,
-  // but are acknowledged with just a TrID.
-  _payloadCommands: { "NOT": true, "MSG": true },
-
-  _data: "", // incoming data buffer.  character encoding is unknown
-
+  _dataBuffer: "", // incoming data buffer.  character encoding is unknown
   _timeout: null, // return value of setTimeout
 
+  /*
+   *****************************************************************************
+   ******************************* Public methods ******************************
+   *****************************************************************************
+   */
   // Synchronously open a connection.
-  connect: function(host, port) {
-    this._log("<o> Connecting to: " + host + ":" + port);
-    this.host = host.toLowerCase();
-    this.port = port;
-    this._data = "";
+  connect: function(aHost, aPort, aIsSSL, aProxy, aBinaryMode, aDelimOrSegSize) {
+    this._log("<o> Connecting to: " + aHost + ":" + aPort);
+    this.host = aHost;
+    this.port = aPort;
+    this.security = [];
+    if (!!aIsSSL)
+      security.push("ssl")
+    /*if (!!aIsTLS)
+        security.push("tls");*/
+    if (aProxy)
+      this.proxy = aProxy;
+    this.binaryMode = !!aBinaryMode;
+    if (this.binaryMode)
+      this._segmentSize = aDelimOrSegSize;
+    else
+      this._delimiter = aDelimOrSegSize;
+
     this.isConnected = true;
+    this._dataBuffer = "";
 
-    const sts = Components.classes["@mozilla.org/network/socket-transport-service;1"].getService(Components.interfaces.nsISocketTransportService);
-    this.transport = sts.createTransport(null, 0, host, port, null);
-    // no limit on the output stream buffer
-    this._outputStream = this.transport.openOutputStream(0, 4096, -1);
-    if(!this._outputStream) throw "Error getting output stream.";
-    this._inputStream = this.transport.openInputStream(0, 0, 0);
-    if(!this._inputStream) throw "Error getting input stream.";
-    const bis = Components.classes["@mozilla.org/binaryinputstream;1"].createInstance(Components.interfaces.nsIBinaryInputStream);
-    bis.setInputStream(this._inputStream);
-    this._binaryInputStream = bis;
-    const pump = Components.classes["@mozilla.org/network/input-stream-pump;1"].createInstance(Components.interfaces.nsIInputStreamPump);
-    pump.init(this._inputStream, -1, -1, 0, 0, false);
-    pump.asyncRead(this, this);
+    let socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
+                      .getService(Ci.nsISocketTransportService);
+    this.transport = socketTS.createTransport(this.security,
+                                              this.security.length, this.host,
+                                              this.port, this.proxy);
+
+    this._openStreams();
   },
 
-  listen: function(port) {
-    this._log("<o> Listening on port " + port);
-    const sSC = Components.classes["@mozilla.org/network/server-socket;1"];
-    if (!sSC) throw("Could not get server socket class.");
-    const serverSock = sSC.createInstance();
-    if (!serverSock) throw("Could not get server socket.");
-    this.serverSock = serverSock.QueryInterface(Components.interfaces.nsIServerSocket);
-    this.serverSock.init(port, false, -1);
-    this.serverSock.asyncListen(this);
-  },
-
-  onSocketAccepted: function(socket, transport) {
-    this._log("<o> onSocketAccepted");
-    this.transport = transport;
-    this.host = this.transport.host.toLowerCase();
-    this.port = this.transport.port;
-    this._data = "";
-    this.isConnected = true;
-
-    // no limit on the output stream buffer
-    this._outputStream = this.transport.openOutputStream(0, 4096, -1);
-    if(!this._outputStream) throw "Error getting output stream.";
-    this._inputStream = this.transport.openInputStream(0, 0, 0);
-    if(!this._inputStream) throw "Error getting input stream.";
-    const bis = Components.classes["@mozilla.org/binaryinputstream;1"].createInstance(Components.interfaces.nsIBinaryInputStream);
-    bis.setInputStream(this._inputStream);
-    this._binaryInputStream = bis;
-    const pump = Components.classes["@mozilla.org/network/input-stream-pump;1"].createInstance(Components.interfaces.nsIInputStreamPump);
-    pump.init(this._inputStream, -1, -1, 0, 0, false);
-    pump.asyncRead(this, this);
-    this.onConnectionHeard();
-    this.stopListening();
-  },
-
+  // Disconnect all open streams.
   disconnect: function() {
     this._log(">o< Disconnect");
-    if(this._inputStream) this._inputStream.close();
-    if(this._outputStream) this._outputStream.close();
+    if (this._inputStream)
+      this._inputStream.close();
+    if (this._outputStream)
+      this._outputStream.close();
+    // this._socketTransport.close(Components.results.NS_OK);
     this.isConnected = false;
   },
 
+  // Listen for a connection on a port.
+  // XXX take a timeout and then call stop listening/
+  listen: function(port) {
+    this._log("<o> Listening on port " + port);
+
+    this.serverSocket = Cc["@mozilla.org/network/server-socket;1"]
+                           .createInstance(Ci.nsIServerSocket);
+    this.serverSocket.init(port, false, -1);
+    this.serverSocket.asyncListen(this);
+  },
+
+  // Stop listening for a connection.
   stopListening: function() {
     this._log(">o< Stop listening");
-    if(this.serverSock) this.serverSock.close();
+    if (this.serverSocket)
+      this.serverSocket.close();
   },
 
-  // Methods for subtypes to override
-  onConnectionHeard: function() {
-  },
-  onConnectionTimedOut: function() {
-  },
-  onConnectionReset: function() {
-  },
-  onProtocolMessageReceived: function(msg, payload) {
-  },
-  onBinaryDataReceived: function(binData, binDataLength) {
-  },
-
-  // Convenience function for sending protocol-level messages in the usual MSN format.
-  sendMsg: function(items, payload) {
-    if(payload) items.push(payload.length);
-    this.sendData(items.join(" ") + "\r\n" + (payload || ''));
-  },
-
-  // Low-level
-  sendData: function(str, timeout) {
-    this._logMsg('>>> ', '.>. ', str);
+  // Send data on the output stream.
+  send: function(aData, aTimeout) {
+    this._log("Send data: <" + aData + ">");
     try {
-      this._outputStream.write(str, str.length);
-      if(timeout) {
-        if(this._timeout) clearTimeout(this._timeout);
-        this._timeout = setTimeout(onTimeOutHelper, timeout, this); // i.e. onTimeOutHelper(this)
+      this._outputStream.write(aData, aData.length);
+      if (aTimeout) {
+        if (this._timeout)
+          clearTimeout(this._timeout);
+        this._timeout = setTimeout(onTimeOutHelper, aTimeout, this); // i.e. onTimeOutHelper(this)
       }
     } catch(e) {
       this.isConnected = false;
     }
   },
 
-  // nsIStreamListener::onDataAvailable, called by Mozilla's networking code.
-  // Buffers the data, and parses it into discrete messages of the form used in
-  // MSNP (i.e. space-separated tokens, terminated with \r\n, and possibly a
-  // "payload" blob of data following that.
-  onDataAvailable: function(request, ctxt, inStr, sourceOffset, count) {
-    this._data += this._binaryInputStream.readBytes(count);
-    if(this._timeout) clearTimeout(this._timeout);
+  /*
+   *****************************************************************************
+   ***************************** Interface methods *****************************
+   *****************************************************************************
+   */
+  /*
+   * nsIServerSocketListener methods
+   */
+  // Called when a client connection is accepted.
+  onSocketAccepted: function(aSocket, aTransport) {
+    this._log("<o> onSocketAccepted");
+    this.transport = aTransport;
+    this.host = this.transport.host;
+    this.port = this.transport.port;
+    this._dataBuffer = "";
+    this.isConnected = true;
 
-    if(this.binaryMode == false) {
-      while(this._data) {
-        var lineEnd = this._data.indexOf('\r\n');
-        var toConsume = lineEnd + 2; // 2 == "\r\n".length
-        if(lineEnd == -1) return; // need to buffer more
-        var msgdata = this._data.substr(0, lineEnd);
-        var msgbits = msgdata.split(" ");
-        if(msgbits[0] in this._payloadCommands) {
-          var payloadLength = parseInt(msgbits[msgbits.length - 1]);
-          // bail out if message isn't entirely here yet
-          if(this._data.length < payloadLength + toConsume) return;
-          this._dispatchProtocolMessage(msgbits, toConsume, payloadLength);
-        } else {
-          this._dispatchProtocolMessage(msgbits, toConsume, 0);
-        }
-      }
+    this._openStreams();
+
+    this.onConnectionHeard();
+    this.stopListening();
+  },
+  // Called when the listening socket stops for some reason.
+  // The server socket is effectively dead after this notification.
+  onStopListening: function(aSocket, aStatus) {
+    this._log("onStopListening");
+    delete this.serverSock;
+  },
+
+  /*
+   * nsIStreamListener methods
+   */
+  // onDataAvailable, called by Mozilla's networking code.
+  // Buffers the data, and parses it into discrete messages.
+  onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
+    if (this.binaryMode)
+      this._dataBuffer += this._binaryInputStream.readBytes(aCount);
+    else
+      this._dataBuffer += this._scriptableInputStream.read(aCount);
+    if (this._timeout)
+      clearTimeout(this._timeout);
+
+    if (this.binaryMode) {
+      // XXX this is most likely incorrect
+      this.onBinaryDataReceived(this._dataBuffer, this._dataBuffer.length);
     } else {
-      while(this._data) {
-        var secondByte = this._data.charCodeAt(1);
-        var thirdByte = this._data.charCodeAt(2);
-        var bodyLength = secondByte + (thirdByte * 256);
-        if(this._data.length < bodyLength + 3) return;
-        var bodyBytes = this._data.substr(3, bodyLength);
-        this._dispatchBinaryData(bodyBytes, bodyLength);
-      }
+      let data = this._dataBuffer.split(this._delimiter);
+
+      // Store the (possibly) incomplete part
+      this._dataBuffer = data.pop();
+
+      // For each string, handle the data
+      data.forEach(this.onDataReceived)
     }
   },
 
-  _dispatchProtocolMessage: function(msgbits, numMsgBytes, payloadLength) {
-    this._logMsg('<<< ', '.<. ', this._data.slice(0, numMsgBytes + payloadLength));
-    const payload = this._data.substr(numMsgBytes, payloadLength);
-    this._data = this._data.slice(numMsgBytes + payloadLength);
-    this.onProtocolMessageReceived(msgbits, payload);
+  /*
+   * nsIRequestObserver methods
+   */
+  onStartRequest: function(aRequest, aContext) {
+    this._log("onStartRequest");
   },
-
-  _dispatchBinaryData: function(bodyBytes, bodyLength) {
-    this._data = this._data.slice(bodyLength + 3);
-    this.onBinaryDataReceived(bodyBytes, bodyLength);
-  },
-
-  _logMsg: function(prefix, infix, txt) {
-    infix = "\n" + infix;
-    this._log(prefix + txt.replace(/\s+$/, '').replace(/\r?\n/g, infix));
-  },
-
-  _log: function(str) {
-    dump(str + "\n");
-  },
-
-  // nsIRequestObserver methods (required by nsIStreamListener)
-  onStartRequest: function(request, ctxt) {
-    this._log("BaseConnection.onStartRequest");
-  },
-
-  onStopRequest: function(request, ctxt, status) {
-    this._log("BaseConnection.onStopRequest (" + status + ")");
-    if(status == 2152398868) {
+  onStopRequest: function(aRequest, aContext, aStatus) {
+    this._log("onStopRequest (" + aStatus + ")");
+    if (aStatus == NS_ERROR_NET_RESET) {
       this.isConnected = false;
       this.onConnectionReset();
     }
   },
 
-  // required by nsISocketListener
-  onStopListening: function(socket, status) {
-    this._log("BaseConnection.onStopListening");
-    delete this.serverSock;
-  }
-}
+  /*
+   * nsITransportEventSink methods
+   */
+  onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) { },
 
+  /*
+   *****************************************************************************
+   ****************************** Private methods ******************************
+   *****************************************************************************
+   */
+  _log: function(str) {
+    Services.console.logStringMessage(str);
+  },
+  _openStreams: function() {
+    let threadManager = Cc["@mozilla.org/thread-manager;1"]
+                           .getService(Ci.nsIThreadManager);
+    this.transport.setEventSink(this, threadManager.currentThread);
+
+    // No limit on the output stream buffer
+    this._outputStream = this.transport.openOutputStream(0, // flags
+                                                         this._segmentSize, // Use default segment size
+                                                         -1); // Segment count
+    if (!this._outputStream)
+      throw "Error getting output stream.";
+
+    this._inputStream = this.transport.openInputStream(0, // flags
+                                                       0, // Use default segment size
+                                                       0); // Use default segment count
+    if (!this._inputStream)
+      throw "Error getting input stream.";
+
+    // Handle binary mode
+    if (this.binaryMode) {
+      this._binaryInputStream = Cc["@mozilla.org/binaryinputstream;1"]
+                                   .createInstance(Ci.nsIBinaryInputStream);
+      this._binaryInputStream.setInputStream(this._inputStream);
+    } else {
+      this._scriptableInputStream =
+        Cc["@mozilla.org/scriptableinputstream;1"]
+           .createInstance(Ci.nsIScriptableInputStream);
+      this._scriptableInputStream.init(this._inputStream);
+    }
+
+    this.pump = Cc["@mozilla.org/network/input-stream-pump;1"]
+                   .createInstance(Ci.nsIInputStreamPump);
+    this.pump.init(this._inputStream, // Data to read
+                    -1, // Current offset
+                    -1, // Read all data
+                    0, // Use default segment size
+                    0, // Use default segment length
+                    false); // Do not close when done
+    this.pump.asyncRead(this, this);
+  },
+
+  /*
+   *****************************************************************************
+   ********************* Methods for subtypes to override **********************
+   *****************************************************************************
+   */
+  // Called when a socket is accepted after listening.
+  onConnectionHeard: function() { },
+  // Called when a connection times out.
+  onConnectionTimedOut: function() { },
+  // Called when a socket request's network is reset
+  onConnectionReset: function() { },
+  // Called when ASCII data is available.
+  onDataReceived: function(aData) { },
+  // Called when binary data is available.
+  onBinaryDataReceived: function(aData, aDataLength) { }
+}
 
 // Wrapper to make "this" be the right object inside .onConnectionTimedOut()
 function onTimeOutHelper(connection) {
