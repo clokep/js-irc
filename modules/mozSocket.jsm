@@ -51,6 +51,15 @@
  *   onBinaryDataReceived(data, length)
  */
 
+/*
+ * To Do:
+ *   Handle errors that can be thrown from a secure socket connection (i.e.
+ *     nsIBadCertListener2); see ChatZilla code.
+ *   Add a message queue to keep from flooding a server (just an array, just
+ *     keep shifting the first element off and calling as setTimeout for the
+ *     desired flood time?).
+ */
+
 var EXPORTED_SYMBOLS = ["mozSocket"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
