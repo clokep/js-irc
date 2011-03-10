@@ -60,7 +60,7 @@
  *     desired flood time?).
  */
 
-var EXPORTED_SYMBOLS = ["mozSocket"];
+var EXPORTED_SYMBOLS = ["Socket"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource:///modules/imServices.jsm");
@@ -74,7 +74,7 @@ const NS_ERROR_UNKNOWN_HOST = NS_ERROR_MODULE_NETWORK + 30;
 const NS_ERROR_UNKNOWN_PROXY_HOST = NS_ERROR_MODULE_NETWORK + 42;
 const NS_ERROR_PROXY_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 72;
 
-const mozSocket = {
+const Socket = {
   binaryMode: false,
   security: [],
   proxy: null,

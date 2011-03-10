@@ -47,7 +47,7 @@ Cu.import("resource://irc-js/irc.jsm");
 Cu.import("resource://irc-js/ctcp.jsm");
 var specifications = [ctcp, irc];
 
-Cu.import("resource://irc-js/mozSocket.jsm");
+Cu.import("resource://irc-js/socket.jsm");
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -173,7 +173,7 @@ Conversation.prototype.__proto__ = GenericConvIMPrototype;
 function sock(aAccount, aOnDataReceived) {
   this.onDataReceived = aOnDataReceived.bind(aAccount);
 }
-sock.prototype.__proto__ = mozSocket;
+sock.prototype.__proto__ = Socket;
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
