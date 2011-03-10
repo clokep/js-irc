@@ -15,6 +15,9 @@ RFCs (http://www.irchelp.org/irchelp/rfc/):
   RFC 2813 (IRC server protocol)
     http://tools.ietf.org/html/rfc2813
     This applies only to servers
+  Summaries of all the numeric codes:
+    http://www.irchelp.org/irchelp/ircd/numerics.html
+    http://www.mirc.net/raws/
 
 File Transfer / CTCP extensions:
   DCC specification (superseded fully by CTCP specification)
@@ -33,14 +36,13 @@ File Transfer / CTCP extensions:
     http://www.invlogic.com/irc/ctcp2_intro.html
   SDCC / DCC SCHAT (Secure DCC)
   DCC Voice
-  See http://www.kvirc.de/docu/doc_dcc_connection.html for an overall comparison
-  and explanation of the extensions to DCC.
-
   DCC2 (superseds DCC, CTCP, updated CTCP, CTCP/2) -- http://www.dcc2.org/
     http://tools.ietf.org/html/draft-smith-irc-dcc2-negotiation-00
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-files-00.txt
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-negotiation-00.txt
     This doesn't seem done
+  See http://www.kvirc.de/docu/doc_dcc_connection.html for an overall comparison
+  and explanation of the extensions to DCC.
 
 Extension Support:
   ISupport
@@ -66,6 +68,8 @@ Authentication:
       http://tools.ietf.org/html/rfc4616
   NickServ
   Auth?
+  Ident
+    http://tools.ietf.org/html/rfc1413
 
 Services:
   IRC+ (http://irc-plus.org/en/ and http://about.psyc.eu/IRCPLUS)
@@ -100,3 +104,10 @@ Other:
     http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/account-notify.txt
   Target change for Messages
     http://hg.atheme.org/charybdis/charybdis/raw-file/tip/doc/tgchange.txt
+  ircle colors
+    http://www.ircle.com/colorfaq.shtml
+  mIRC colors
+    http://www.mirc.com/colors.html
+  NAMESX
+    http://wiki.inspircd.org/Modules/namesx
+    Send all modes of a user
