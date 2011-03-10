@@ -4,17 +4,17 @@
 <title>Internet Relay Chat</title>
 <meta name="description" content="computer consulting services, internet and
 intranet desing, and custom software development">
-<meta name="keywords" content="computer, consulting, web, internet, intranet, 
-WWW, world wide web, services, software, development, OS/2, Linux, Windows, 
-hosting, virtual host, design, graphic, multimedia, Washington, Baltimore, Maryland, 
-scanning, CD-Rom, computers, consultant, programming, scanner, IRC/2, Internet 
+<meta name="keywords" content="computer, consulting, web, internet, intranet,
+WWW, world wide web, services, software, development, OS/2, Linux, Windows,
+hosting, virtual host, design, graphic, multimedia, Washington, Baltimore, Maryland,
+scanning, CD-Rom, computers, consultant, programming, scanner, IRC/2, Internet
 Relay Chat, IRC">
 </head>
-<body background="ctcp2_4_files/backdrop.gif" bgcolor="#FFFFFF">
+<body bgcolor="#FFFFFF">
 
 
 <h2>4. CTCP Requests and Replies</h2>
-   
+
 <p>
 A list of standard defined CTCP requests and replies follows.  Some CTCP
 keywords are only valid as a request, while one (ERRMSG) is only valid as
@@ -31,7 +31,7 @@ Request: 'VERSION'<br>
 Reply: 'VERSION' SP user-text
 
 </p><p>
-This request will provide to the initiator information about the 
+This request will provide to the initiator information about the
 particular client is being used by the recipient.  A valid request will
 have no arguments accompanying it.
 
@@ -69,7 +69,7 @@ Request: "PING" SP arg<br>
 Reply: "PING" SP arg
 
 </p><p>
-This request is intended to determine the round trip time of a message 
+This request is intended to determine the round trip time of a message
 from the initiator to the recipient and back to the initiator.  The
 recipient is required to return a duplicate of the received argument
 without modification.  Each client will define its own format for the
@@ -86,15 +86,15 @@ Request: "CLIENTINFO"<br>
 Reply: "CLIENTINFO" *( SP keyword )
 
 </p><p>
-This request will be used to inquire of the capabilities of a client. 
+This request will be used to inquire of the capabilities of a client.
 The response will be a space-separated list of the valid request keywords
 recognised by this client.
 
 </p><p>
 The previous implementation of this command allowed for an argument which
-would provide additional information about the command, acting like a 
-help reference.  In the interests of cutting down on the flood potential 
-of clients, as well as the recent need to maintain local help files, 
+would provide additional information about the command, acting like a
+help reference.  In the interests of cutting down on the flood potential
+of clients, as well as the recent need to maintain local help files,
 this optional behavior is deprecated.
 
 </p><p>
@@ -106,7 +106,7 @@ Request: "ACTION" SP user-text<br>
 There is no reply.
 
 </p><p>
-This request is used to provide an alternative form of speaking either 
+This request is used to provide an alternative form of speaking either
 to an individual or channel.  This text should be treated in a manner
 similar to a PRIVMSG from RFC 1459.  Alternate display methods are
 encouraged.
@@ -127,7 +127,7 @@ Request: "FINGER"<br>
 Reply: "FINGER" SP user-text
 
 </p><p>
-The response to this request will be a user specified text string, and 
+The response to this request will be a user specified text string, and
 may contain any valid ASCII character 32 or above.  No restrictions are
 placed on the content of this reply.
 
@@ -182,10 +182,10 @@ A reply may be sent if the request was a "firewall request" (see section
 5).
 
 </p><p>
-This implements the Direct Client to Client protocol.  The intent of 
-this protocol is to facilitate the transfer of information from client 
-to client, without directly accessing the IRC network.  An initial 
-message is sent from the initiator to the recipient, where an IP and 
+This implements the Direct Client to Client protocol.  The intent of
+this protocol is to facilitate the transfer of information from client
+to client, without directly accessing the IRC network.  An initial
+message is sent from the initiator to the recipient, where an IP and
 port are extracted from the message and a direct TCP connection is
 established.  The intent of the connection is indicated by the dcc-type
 field in the original message.
@@ -321,7 +321,7 @@ Last modified: 17-Sep-2004 01:04PM.<br>
    function xLateUrl(aCollection, sProp) {
       var i = 0;
       for(i = 0; i < aCollection.length; i++) {
-         var url = aCollection[i][sProp];         if (typeof(url) == "string") { 
+         var url = aCollection[i][sProp];         if (typeof(url) == "string") {
           if (url.indexOf("mailto:") == -1 &&
              url.indexOf("javascript:") == -1
              && url.length > 0) {

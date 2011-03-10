@@ -4,13 +4,13 @@
 <title>Internet Relay Chat</title>
 <meta name="description" content="computer consulting services, internet and
 intranet desing, and custom software development">
-<meta name="keywords" content="computer, consulting, web, internet, intranet, 
-WWW, world wide web, services, software, development, OS/2, Linux, Windows, 
-hosting, virtual host, design, graphic, multimedia, Washington, Baltimore, Maryland, 
-scanning, CD-Rom, computers, consultant, programming, scanner, IRC/2, Internet 
+<meta name="keywords" content="computer, consulting, web, internet, intranet,
+WWW, world wide web, services, software, development, OS/2, Linux, Windows,
+hosting, virtual host, design, graphic, multimedia, Washington, Baltimore, Maryland,
+scanning, CD-Rom, computers, consultant, programming, scanner, IRC/2, Internet
 Relay Chat, IRC">
 </head>
-<body background="ctcp2_5_files/backdrop.gif" bgcolor="#FFFFFF">
+<body bgcolor="#FFFFFF">
 
 
 <p>
@@ -57,32 +57,32 @@ A firewall DCC request has special values for the IP and port fields.
 
 <p>
 Request: "DCC" SP "CHAT" SP unused SP ip SP port
-CHAT is used to initiate a conversation directly between clients. 
+CHAT is used to initiate a conversation directly between clients.
 Often used to bypass the IRC network, and its associated latencies in
-delivering messages.  It may also be used for other unspecified 
+delivering messages.  It may also be used for other unspecified
 purposes.
 
 </p><p>
 The unused parameter is historical.  It should be set to "chat" in
 requests, but some clients put effectively random strings here, so
 don't count on any meaningful data in this field.
-All messages recieved via the DCC CHAT connection should be treated 
+All messages recieved via the DCC CHAT connection should be treated
 in the same fashion as messages received from the IRC network via a
-PRIVMSG.  This extention of the current protocol allows further 
+PRIVMSG.  This extention of the current protocol allows further
 requests or text attributes to be exchanged once the connection is
 established.
 
 </p><p>
-If the recipient of the offer does not accept within a given time 
-frame (5 minutes seems appropriate), or the recipient declines to 
-enter a chat with the initiator, a negative acknowledgement should be 
-sent, subject to flood control.  The format of this rejection should 
+If the recipient of the offer does not accept within a given time
+frame (5 minutes seems appropriate), or the recipient declines to
+enter a chat with the initiator, a negative acknowledgement should be
+sent, subject to flood control.  The format of this rejection should
 be a CTCP reply message of:
 
 "ERRMSG" SP "DCC" SP "CHAT" SP unused SP "declined"
-Upon reciept of this message, the initiator should inform its user 
+Upon reciept of this message, the initiator should inform its user
 and clear the offered connection.
-Should the cause of the failure be for a reason other than timeout or 
+Should the cause of the failure be for a reason other than timeout or
 user rejection, the rejection message should be a CTCP reply message,
 taking the following format:
 "ERRMSG" SP "DCC" SP "CHAT" SP unused SP error-message
@@ -126,22 +126,22 @@ do so.
 If the stream has no specific filename, the filename must be specified
 as "-" (a single dash).  A file which has the filename "-" on a local
 system must be renamed in transit to avoid confusion with this placeholder.
-         
+
 </p><p>
-If the recipient of the offer does not accept within a given time 
-frame (5 minutes seems appropriate), or the recipient declines to 
-accept the offer from the initiator, a negative acknowledgement 
-should be sent, subject to flood control.  The format of this 
+If the recipient of the offer does not accept within a given time
+frame (5 minutes seems appropriate), or the recipient declines to
+accept the offer from the initiator, a negative acknowledgement
+should be sent, subject to flood control.  The format of this
 rejection should be:
 
 </p><p>
 "ERRMSG" SP "DCC" SP mime-type SP filename SP "declined"
-Upon reciept of this message, the initiator should inform its user 
+Upon reciept of this message, the initiator should inform its user
 and clear the offered connection.
 
 </p><p>
-Should the cause of the failure be for a reason other than timeout or 
-user rejection, the rejection message should take the following 
+Should the cause of the failure be for a reason other than timeout or
+user rejection, the rejection message should take the following
 format:
 
 </p><p>
@@ -305,7 +305,7 @@ Last modified: 17-Sep-2004 01:04PM.<br>
    function xLateUrl(aCollection, sProp) {
       var i = 0;
       for(i = 0; i < aCollection.length; i++) {
-         var url = aCollection[i][sProp];         if (typeof(url) == "string") { 
+         var url = aCollection[i][sProp];         if (typeof(url) == "string") {
           if (url.indexOf("mailto:") == -1 &&
              url.indexOf("javascript:") == -1
              && url.length > 0) {
