@@ -170,10 +170,11 @@ Conversation.prototype = {
 };
 Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
-function sock(aAccount, aOnDataReceived) {
+function ircSocket(aAccount, aOnDataReceived) {
+  this.delimiter = "\r\n";
   this.onDataReceived = aOnDataReceived.bind(aAccount);
 }
-sock.prototype.__proto__ = Socket;
+ircSocket.prototype.__proto__ = Socket;
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
@@ -208,7 +209,7 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    this._socket = new sock(this, this._handleMessage);
+    this._socket = new ircSocket(this, this._handleMessage);
     this._socket.connect(this._server, this._port, this._ssl, null, false, "\r\n");
 
     this._connectionRegistration();
