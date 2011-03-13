@@ -30,7 +30,8 @@
  * simple(r) use of sockets code.
  *
  * This implements nsIServerSocketListener, nsIStreamListener,
- * nsIRequestObserver, and nsITransportEventSink.
+ * nsIRequestObserver, nsITransportEventSink, nsIBadCertListener2, and
+ * nsISSLErrorListener.
  *
  * This uses nsISocketTransportServices, nsIServerSocket, nsIThreadManager,
  * nsIBinaryInputStream, nsIScriptableInputStream, nsIInputStreamPump,
@@ -59,12 +60,10 @@
 
 /*
  * To Do:
- *   Handle errors that can be thrown from a secure socket connection (i.e.
- *     nsIBadCertListener2); see ChatZilla code.
  *   Add a message queue to keep from flooding a server (just an array, just
  *     keep shifting the first element off and calling as setTimeout for the
  *     desired flood time?).
- *   Have this automatically add the delimiter on out-going messages.
+ *   Check that binary data can be sent/received.
  */
 
 var EXPORTED_SYMBOLS = ["Socket"];
@@ -82,12 +81,21 @@ const NS_ERROR_UNKNOWN_PROXY_HOST = NS_ERROR_MODULE_NETWORK + 42;
 const NS_ERROR_PROXY_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 72;
 
 const Socket = {
+  // Use this to use binary mode for the
   binaryMode: false,
-  security: [],
-  proxy: null,
+
+  // XXX should this just check isAlive() for each stream?
   isConnected: false,
+
+  // Set this for non-binary mode to automatically parse the stream into chunks
+  // separated by delimiter.
   delimiter: null,
+  // Set this for the segment size of incoming binary streams.
   segmentSize: 0,
+
+  // Use this to add a URI scheme to the hostname when resolving the proxy, this
+  // may be unnecessary for some protocols.
+  uriScheme: "",
 
   // Flags used by nsIProxyService when resolving a proxy
   proxyFlags: Ci.nsIProtocolProxyService.RESOLVE_PREFER_SOCKS_PROXY,
@@ -109,19 +117,26 @@ const Socket = {
     else
       this.security = [];
 
-    // Set up the proxy, if one is given set it, otherwise get one from the
-    // proxy service
+    // Choose a proxy, use the given one, otherwise get one from the proxy
+    // service
     if (aProxy)
       this.proxy = aProxy;
     else {
-      let proxyService = Cc["@mozilla.org/network/protocol-proxy-service;1"]
-                            .getService(Ci.nsIProtocolProxyService);
-      let ioService = Cc["@mozilla.org/network/io-service;1"]
-                         .getService(Ci.nsIIOService);
-      /*this.proxy = proxyService.resolve(ioService.newURI(this.host, null, null),
-                                        this.proxyFlags);*/
-      // XXX can't get this to work
-      this.proxy = null;
+      try {
+        // Attempt to get a default proxy from the proxy service.
+        let proxyService = Cc["@mozilla.org/network/protocol-proxy-service;1"]
+                              .getService(Ci.nsIProtocolProxyService);
+        let ioService = Cc["@mozilla.org/network/io-service;1"]
+                           .getService(Ci.nsIIOService);
+
+        // Add a URI scheme since, by default, some protocols (i.e. IRC) don't
+        // have a URI scheme before the host.
+        let uri = ioService.newURI(this.uriScheme + this.host, null, null);
+        this.proxy = proxyService.resolve(uri, this.proxyFlags);
+      } catch(e) {
+        // We had some error getting the proxy service, just don't use one
+        this.proxy = null;
+      }
     }
 
     // Empty incoming and outgoing data storage buffers
@@ -133,7 +148,11 @@ const Socket = {
     this.transport = socketTS.createTransport(this.security,
                                               this.security.length, this.host,
                                               this.port, this.proxy);
-    // XXX this.transport.securityCallback = ...;
+
+    // Security notification callbacks (must support nsIBadCertListener2 and
+    // nsISSLErrorListener for SSL connections, and possibly other interfaces).
+    this.transport.securityCallbacks = this;
+
     // XXX this.transport.setTimeout(); for TIMEOUT_CONNECT and TIMEOUT_READ_WRITE
     // Open the incoming and outgoing sockets
     this._openStreams();
@@ -145,8 +164,8 @@ const Socket = {
   // Reconnect to the current settings stored in the socket.
   reconnect: function() {
     // If there's nothing to reconnect to or we're connected, do nothing
-    if (!this.isConnected && this.host)
-      connect(this.host, this.port, this.security, this.proxy);
+    if (!this.isConnected && this.host && this.port)
+      connect(this.host, this.port, this.security || [], this.proxy || null);
   },
 
   // Disconnect all open streams.
@@ -178,15 +197,34 @@ const Socket = {
   // Stop listening for a connection.
   stopListening: function() {
     this.log("Stop listening");
+    // Close the socket to stop listening.
     if (this.serverSocket)
       this.serverSocket.close();
   },
 
   // Send data on the output stream.
-  send: function(aData) {
+  sendData: function(/* string */ aData) {
     this.log("Send data: <" + aData + ">");
     try {
-      this._outputStream.write(aData, aData.length);
+      this._outputStream.write(aData + this.delimiter,
+                               aData.length + this.delimiter.length);
+    } catch(e) {
+      this.isConnected = false;
+    }
+  },
+
+  sendBinaryData: function(/* ArrayBuffer */ aData) {
+    this.log("Sending binary data data: <" + aData + ">");
+    try {
+      let uint8 = Uint8Array(aData);
+
+      // Since there doesn't seem to be a uint8.get() method for the byte array
+      let byteArray = [];
+      for (let i = 0; i < uint8.byteLength; i++)
+        byteArray.push(uint8[i]);
+
+      // Send the data as a byte array
+      this._binaryOutputStream.writeByteArray(byteArray, byteArray.length);
     } catch(e) {
       this.isConnected = false;
     }
@@ -233,11 +271,12 @@ const Socket = {
       // Load the data from the stream
       let data = this._incomingDataBuffer.concat(this._binaryInputStream
                                                      .readByteArray(aCount));
+      // XXX this needs to handle the _incomingDataBuffer in a reasonable way
       let buffer = new ArrayBuffer(data.length);
       let uintArray = new Uint8Array(buffer);
       uintArray.set(data);
 
-      this.onBinaryDataReceived(buffer, data.length);
+      this.onBinaryDataReceived(buffer);
     } else {
       // Load the data from the stream
       this._incomingDataBuffer += this._scriptableInputStream.read(aCount);
@@ -262,9 +301,11 @@ const Socket = {
   /*
    * nsIRequestObserver methods
    */
+  // Signifies the beginning of an async request
   onStartRequest: function(aRequest, aContext) {
     this.log("onStartRequest");
   },
+  // Called to signify the end of an asynchronous request.
   onStopRequest: function(aRequest, aContext, aStatus) {
     this.log("onStopRequest (" + aStatus + ")");
     if (aStatus == NS_ERROR_NET_RESET) {
@@ -272,6 +313,18 @@ const Socket = {
       this.onConnectionReset();
     }
   },
+
+  /*
+   * nsIBadCertListener2
+   */
+  // Called when there's an error, return true to suppress the modal alert.
+  notifyCertProblem: function(aSocketInfo, aStatus, aTargetSite) true,
+
+  /*
+   * nsISSLErrorListener
+   */
+  notifySSLError: function(aSocketInfo, aError, aTargetSite) true,
+
 
   /*
    *****************************************************************************
@@ -308,6 +361,10 @@ const Socket = {
       this._binaryInputStream = Cc["@mozilla.org/binaryinputstream;1"]
                                    .createInstance(Ci.nsIBinaryInputStream);
       this._binaryInputStream.setInputStream(this._inputStream);
+
+      this._binaryOutputStream = Cc["@mozilla.org/binaryoutputstream;1"]
+                                    .createInstance(Ci.nsIBinaryOutputStream);
+      this._binaryOutputStream.setOutputStream(this._outputStream);
     } else {
       this._scriptableInputStream =
         Cc["@mozilla.org/scriptableinputstream;1"]
@@ -333,7 +390,7 @@ const Socket = {
    */
   log: function(aString) {
     // XXX this should be empty until the user overrides it
-    Services.console.logStringMessage(aString);
+    Services.console.logStringMessage(this.name + " " + aString);
   },
   // Called when a socket is accepted after listening.
   onConnectionHeard: function() { },
@@ -341,13 +398,53 @@ const Socket = {
   onConnectionTimedOut: function() { },
   // Called when a socket request's network is reset
   onConnectionReset: function() { },
+
   // Called when ASCII data is available.
-  onDataReceived: function(aData) { },
+  onDataReceived: function(/*string */ aData) { },
+
   // Called when binary data is available.
-  onBinaryDataReceived: function(aData, aDataLength) { },
+  onBinaryDataReceived: function(/* ArrayBuffer */ aData) { },
 
   /*
    * nsITransportEventSink methods
    */
   onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) { }
 }
+
+/*
+// Test some stuff out
+function TestSocket() {
+  this.delimiter = "\r\n";
+  this.onDataReceived = (function(aData) {
+    this.log(aData);
+    this.send("<" + aData + ">");
+  }).bind(this);
+  this.onConnectionHeard = function() { this.send("Outgoing"); };
+}
+TestSocket.prototype.__proto__ = Socket;
+
+function setTimeout(aFunction, aDelay) {
+  var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+  var args = Array.prototype.slice.call(arguments, 2);
+  timer.initWithCallback(function (aTimer) { aFunction.call(null, args); },
+                         aDelay, Ci.nsITimer.TYPE_ONE_SHOT);
+  return timer;
+}
+
+let s1 = new TestSocket();
+s1.name = "s1";
+s1.listen(10000);*/
+/*
+var tOut1, tOut2, tOut3;
+tOut1 = setTimeout(function () {
+  let s2 = new TestSocket();
+  s2.name = "s2";
+  s2.connect("localhost", 10000);
+
+  tOut2 = setTimeout(function() {
+    s1.log(s1.isConnected);
+    s1.send("Outgoing delayed");
+    s2.send("Incoming delayed");
+  }, 5000);
+}, 1000);
+*/

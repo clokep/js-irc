@@ -172,6 +172,7 @@ Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
 function ircSocket(aAccount, aOnDataReceived) {
   this.delimiter = "\r\n";
+  this.uriScheme = "irc://";
   this.onDataReceived = aOnDataReceived.bind(aAccount);
 }
 ircSocket.prototype.__proto__ = Socket;
@@ -326,9 +327,9 @@ Account.prototype = {
       message += " " + params.join(" ");
     }
     // XXX should check length of aMessage?
-    message += "\r\n";
+    //message += "\r\n";
     dump("Sending... <" + message.trim() + ">");
-    this._socket.send(message);
+    this._socket.sendData(message);
   },
 
   // Implement section 3.1 of RFC 2812
