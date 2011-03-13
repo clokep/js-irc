@@ -49,8 +49,7 @@ var EXPORTED_SYMBOLS = [
   "GenericProtocolPrototype",
   "ForwardProtocolPrototype",
   "Message",
-  "doXHRequest",
-  "Socket"
+  "doXHRequest"
 ];
 
 /*
