@@ -443,11 +443,6 @@ const Socket = {
 
 // Test some stuff out
 function TestSocket() {
-  this.delimiter = "\r\n";
-  this.binaryMode = true;
-  this.inputSegmentSize = 4;
-  this.outputSegmentSize = 4;
-
   this.onDataReceived = (function(aData) {
     this.log(aData);
     this.sendData("\n" + aData + "\n>> ");
@@ -465,10 +460,16 @@ function TestSocket() {
     this.sendData("<" + byteArray.join(" ") + ">");
     this.sendBinaryData(aData);
   }).bind(this);
+}
+TestSocket.prototype = {
+  delimiter: "\r\n",
+  binaryMode: true,
+  inputSegmentSize: 4,
+  outputSegmentSize: 4,
 
-  this.onConnectionHeard = function() { this.sendData("\n>> "); };
+  onConnectionHeard: function() { this.sendData("\n>> "); },
 
-  this.log = function(aString) {
+  log: function(aString) {
     Services.console.logStringMessage(this.name + " " + aString);
   }
 }
