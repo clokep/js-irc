@@ -78,7 +78,6 @@
  *   Add a message queue to keep from flooding a server (just an array, just
  *     keep shifting the first element off and calling as setTimeout for the
  *     desired flood time?).
- *   Check that binary data can be sent/received.
  */
 
 var EXPORTED_SYMBOLS = ["Socket"];
@@ -464,11 +463,12 @@ function TestSocket() {
 
     this.log(byteArray.join(" "));
     this.sendData("<" + byteArray.join(" ") + ">");
+    this.sendBinaryData(aData);
   }).bind(this);
 
   this.onConnectionHeard = function() { this.sendData("\n>> "); };
 
-  this.log = function() {
+  this.log = function(aString) {
     Services.console.logStringMessage(this.name + " " + aString);
   }
 }
