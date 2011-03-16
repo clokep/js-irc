@@ -59,7 +59,7 @@
  *   .listen(port)
  *   .send(String data)
  * High-level properties:
- *   .isConnected
+ *   XXX Need to include properties here
  *
  * Users should "subclass" this object, i.e. set their .__proto__ to be it. And
  * then implement:
@@ -99,14 +99,16 @@ const Socket = {
   // Use this to use binary mode for the
   binaryMode: false,
 
-  // XXX should this just check isAlive() for each stream?
-  isConnected: false,
-
   // Set this for non-binary mode to automatically parse the stream into chunks
   // separated by delimiter.
   delimiter: null,
-  // Set this for the segment size of incoming binary streams.
-  segmentSize: 0,
+
+  // Set this for binary mode to split after a certain number of bytes have
+  // been received.
+  inputSegmentSize: 0,
+
+  // Set this for the segment size of outgoing binary streams.
+  outputSegmentSize: 0,
 
   // Use this to add a URI scheme to the hostname when resolving the proxy, this
   // may be unnecessary for some protocols.
@@ -173,13 +175,12 @@ const Socket = {
     this._openStreams();
 
     // XXX should this call an onConnected function?
-    this.isConnected = true;
   },
 
   // Reconnect to the current settings stored in the socket.
   reconnect: function() {
     // If there's nothing to reconnect to or we're connected, do nothing
-    if (!this.isConnected && this.host && this.port)
+    if (!this.transport.isAlive() && this.host && this.port)
       connect(this.host, this.port, this.security || [], this.proxy || null);
   },
 
@@ -194,8 +195,8 @@ const Socket = {
       this._outputStream.close();
     // this._socketTransport.close(Components.results.NS_OK);
 
-    // XXX should this be an onDisconnect function?
-    this.isConnected = false;
+    // XXX should this call an onDisconnect function?
+
   },
 
   // Listen for a connection on a port.
@@ -224,24 +225,24 @@ const Socket = {
       this._outputStream.write(aData + this.delimiter,
                                aData.length + this.delimiter.length);
     } catch(e) {
-      this.isConnected = false;
+      Cu.reportError(e);
     }
   },
 
   sendBinaryData: function(/* ArrayBuffer */ aData) {
     this.log("Sending binary data data: <" + aData + ">");
+
+    let uint8 = Uint8Array(aData);
+
+    // Since there doesn't seem to be a uint8.get() method for the byte array
+    let byteArray = [];
+    for (let i = 0; i < uint8.byteLength; i++)
+      byteArray.push(uint8[i]);
     try {
-      let uint8 = Uint8Array(aData);
-
-      // Since there doesn't seem to be a uint8.get() method for the byte array
-      let byteArray = [];
-      for (let i = 0; i < uint8.byteLength; i++)
-        byteArray.push(uint8[i]);
-
       // Send the data as a byte array
       this._binaryOutputStream.writeByteArray(byteArray, byteArray.length);
     } catch(e) {
-      this.isConnected = false;
+      Cu.reportError(e);
     }
   },
 
@@ -264,8 +265,6 @@ const Socket = {
     this._resetBuffers();
     this._openStreams();
 
-    this.isConnected = true;
-
     this.onConnectionHeard();
     this.stopListening();
   },
@@ -284,19 +283,42 @@ const Socket = {
   onDataAvailable: function(aRequest, aContext, aInputStream, aOffset, aCount) {
     if (this.binaryMode) {
       // Load the data from the stream
-      let data = this._incomingDataBuffer.concat(this._binaryInputStream
-                                                     .readByteArray(aCount));
-      // XXX this needs to handle the _incomingDataBuffer in a reasonable way
-      let buffer = new ArrayBuffer(data.length);
-      let uintArray = new Uint8Array(buffer);
-      uintArray.set(data);
+      this._incomingDataBuffer = this._incomingDataBuffer
+                                     .concat(this._binaryInputStream
+                                                 .readByteArray(aCount));
 
-      this.onBinaryDataReceived(buffer);
+      // This will be our array buffer
+      let buffer;
+
+      if (this.inputSegmentSize) {
+        // If we're looking for a certain amount of data
+        if (this._incomingDataBuffer.length >= this.inputSegmentSize) {
+          // If we have enough data, report it
+          buffer = new ArrayBuffer(this.inputSegmentSize);
+          let uintArray = new Uint8Array(buffer);
+          uintArray.set(this._incomingDataBuffer.slice(0,
+                                                       this.inputSegmentSize));
+
+          // Save the extra data
+          this._incomingDataBuffer = this._incomingDataBuffer
+                                         .slice(this.inputSegmentSize);
+
+          // Notify we've received data
+          this.onBinaryDataReceived(buffer);
+        }
+      } else {
+        // Send all the data we've received
+        buffer = new ArrayBuffer(data.length);
+        let uintArray = new Uint8Array(buffer);
+        uintArray.set(data);
+
+        // Notify we've received data
+        this.onBinaryDataReceived(buffer);
+      }
     } else {
-      // Load the data from the stream
-      this._incomingDataBuffer += this._scriptableInputStream.read(aCount);
-
       if (this.delimiter) {
+        // Load the data from the stream
+        this._incomingDataBuffer += this._scriptableInputStream.read(aCount);
         let data = this._incomingDataBuffer.split(this.delimiter);
 
         // Store the (possibly) incomplete part
@@ -306,9 +328,7 @@ const Socket = {
         data.forEach(this.onDataReceived)
       } else {
         // Send the whole string to the handle data function
-        this.onDataReceived(this._incomingDataBuffer);
-        // Clear the buffer since we're not using it
-        this._incomingDataBuffer = "";
+        this.onDataReceived(this._scriptableInputStream.read(aCount));
       }
     }
   },
@@ -323,10 +343,8 @@ const Socket = {
   // Called to signify the end of an asynchronous request.
   onStopRequest: function(aRequest, aContext, aStatus) {
     this.log("onStopRequest (" + aStatus + ")");
-    if (aStatus == NS_ERROR_NET_RESET) {
-      this.isConnected = false;
+    if (aStatus == NS_ERROR_NET_RESET)
       this.onConnectionReset();
-    }
   },
 
   /*
@@ -339,7 +357,6 @@ const Socket = {
    * nsISSLErrorListener
    */
   notifySSLError: function(aSocketInfo, aError, aTargetSite) true,
-
 
   /*
    *****************************************************************************
@@ -360,7 +377,7 @@ const Socket = {
 
     // No limit on the output stream buffer
     this._outputStream = this.transport.openOutputStream(0, // flags
-                                                         this.segmentSize, // Use default segment size
+                                                         this.outputSegmentSize, // Use default segment size
                                                          -1); // Segment count
     if (!this._outputStream)
       throw "Error getting output stream.";
@@ -371,8 +388,8 @@ const Socket = {
     if (!this._inputStream)
       throw "Error getting input stream.";
 
-    // Handle binary mode
     if (this.binaryMode) {
+      // Handle binary mode
       this._binaryInputStream = Cc["@mozilla.org/binaryinputstream;1"]
                                    .createInstance(Ci.nsIBinaryInputStream);
       this._binaryInputStream.setInputStream(this._inputStream);
@@ -381,6 +398,7 @@ const Socket = {
                                     .createInstance(Ci.nsIBinaryOutputStream);
       this._binaryOutputStream.setOutputStream(this._outputStream);
     } else {
+      // Handle character mode
       this._scriptableInputStream =
         Cc["@mozilla.org/scriptableinputstream;1"]
            .createInstance(Ci.nsIScriptableInputStream);
@@ -403,10 +421,7 @@ const Socket = {
    ********************* Methods for subtypes to override **********************
    *****************************************************************************
    */
-  log: function(aString) {
-    // XXX this should be empty until the user overrides it
-    Services.console.logStringMessage(this.name + " " + aString);
-  },
+  log: function(aString) { },
   // Called when a socket is accepted after listening.
   onConnectionHeard: function() { },
   // Called when a connection times out.
@@ -426,40 +441,39 @@ const Socket = {
   onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) { }
 }
 
-/*
+
 // Test some stuff out
 function TestSocket() {
   this.delimiter = "\r\n";
+  this.binaryMode = true;
+  this.inputSegmentSize = 4;
+  this.outputSegmentSize = 4;
+
   this.onDataReceived = (function(aData) {
     this.log(aData);
-    this.send("<" + aData + ">");
+    this.sendData("\n" + aData + "\n>> ");
   }).bind(this);
-  this.onConnectionHeard = function() { this.send("Outgoing"); };
+
+  this.onBinaryDataReceived = (function(aData) {
+    let uint8 = Uint8Array(aData);
+
+    // Since there doesn't seem to be a uint8.get() method for the byte array
+    let byteArray = [];
+    for (let i = 0; i < uint8.byteLength; i++)
+      byteArray.push(uint8[i]);
+
+    this.log(byteArray.join(" "));
+    this.sendData("<" + byteArray.join(" ") + ">");
+  }).bind(this);
+
+  this.onConnectionHeard = function() { this.sendData("\n>> "); };
+
+  this.log = function() {
+    Services.console.logStringMessage(this.name + " " + aString);
+  }
 }
 TestSocket.prototype.__proto__ = Socket;
 
-function setTimeout(aFunction, aDelay) {
-  var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-  var args = Array.prototype.slice.call(arguments, 2);
-  timer.initWithCallback(function (aTimer) { aFunction.call(null, args); },
-                         aDelay, Ci.nsITimer.TYPE_ONE_SHOT);
-  return timer;
-}
-
 let s1 = new TestSocket();
 s1.name = "s1";
-s1.listen(10000);*/
-/*
-var tOut1, tOut2, tOut3;
-tOut1 = setTimeout(function () {
-  let s2 = new TestSocket();
-  s2.name = "s2";
-  s2.connect("localhost", 10000);
-
-  tOut2 = setTimeout(function() {
-    s1.log(s1.isConnected);
-    s1.send("Outgoing delayed");
-    s2.send("Incoming delayed");
-  }, 5000);
-}, 1000);
-*/
+s1.listen(10000);
