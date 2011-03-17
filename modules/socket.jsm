@@ -94,6 +94,22 @@ const NS_ERROR_UNKNOWN_HOST = NS_ERROR_MODULE_NETWORK + 30;
 const NS_ERROR_UNKNOWN_PROXY_HOST = NS_ERROR_MODULE_NETWORK + 42;
 const NS_ERROR_PROXY_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 72;
 
+const BinaryInputStream =
+  Components.Constructor("@mozilla.org/binaryinputstream;1",
+	                       "nsIBinaryInputStream", "setInputStream");
+const BinaryOutputStream =
+  Components.Constructor("@mozilla.org/binaryinputstream;1",
+	                       "nsIBinaryOutputStream", "setOututStream");
+const ScriptableInputStream =
+  Components.Constructor("@mozilla.org/scriptableinputstream;1",
+	                       "nsIScriptableInputStream", "init");
+const ServerSocket =
+  Components.Constructor("@mozilla.org/network/server-socket;1",
+                         "nsIServerSocket", "init");
+const InputStreamPump =
+  Components.Constructor("@mozilla.org/network/input-stream-pump;1",
+                         "nsIInputStreamPump", "init");
+
 const Socket = {
   // Use this to use binary mode for the
   binaryMode: false,
@@ -203,9 +219,7 @@ const Socket = {
   listen: function(port) {
     this.log("Listening on port " + port);
 
-    this.serverSocket = Cc["@mozilla.org/network/server-socket;1"]
-                           .createInstance(Ci.nsIServerSocket);
-    this.serverSocket.init(port, false, -1);
+    this.serverSocket = new ServerSocket(port, false, -1);
     this.serverSocket.asyncListen(this);
   },
 
@@ -387,29 +401,20 @@ const Socket = {
 
     if (this.binaryMode) {
       // Handle binary mode
-      this._binaryInputStream = Cc["@mozilla.org/binaryinputstream;1"]
-                                   .createInstance(Ci.nsIBinaryInputStream);
-      this._binaryInputStream.setInputStream(this._inputStream);
-
-      this._binaryOutputStream = Cc["@mozilla.org/binaryoutputstream;1"]
-                                    .createInstance(Ci.nsIBinaryOutputStream);
-      this._binaryOutputStream.setOutputStream(this._outputStream);
+      this._binaryInputStream = new BinaryInputStream(this._inputStream);
+      this._binaryOutputStream = new BinaryOutputStream(this._outputStream);
     } else {
       // Handle character mode
       this._scriptableInputStream =
-        Cc["@mozilla.org/scriptableinputstream;1"]
-           .createInstance(Ci.nsIScriptableInputStream);
-      this._scriptableInputStream.init(this._inputStream);
+        new ScriptableInputStream(this._inputStream);
     }
 
-    this.pump = Cc["@mozilla.org/network/input-stream-pump;1"]
-                   .createInstance(Ci.nsIInputStreamPump);
-    this.pump.init(this._inputStream, // Data to read
-                    -1, // Current offset
-                    -1, // Read all data
-                    0, // Use default segment size
-                    0, // Use default segment length
-                    false); // Do not close when done
+    this.pump = new InputStreamPump(this._inputStream, // Data to read
+                                    -1, // Current offset
+                                    -1, // Read all data
+                                    0, // Use default segment size
+                                    0, // Use default segment length
+                                    false); // Do not close when done
     this.pump.asyncRead(this, this);
   },
 
