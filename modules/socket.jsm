@@ -82,8 +82,8 @@
 
 var EXPORTED_SYMBOLS = ["Socket"];
 
-const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
-Cu.import("resource:///modules/imServices.jsm");
+const {classes: Cc, interfaces: Ci, results: Cr, utils: Cu} = Components;
+Cu.import("resource://gre/modules/Services.jsm");
 
 // Network errors see: netwerk/base/public/nsNetError.h
 const NS_ERROR_MODULE_NETWORK = 2152398848;
@@ -142,12 +142,11 @@ const Socket = {
         // Attempt to get a default proxy from the proxy service.
         let proxyService = Cc["@mozilla.org/network/protocol-proxy-service;1"]
                               .getService(Ci.nsIProtocolProxyService);
-        let ioService = Cc["@mozilla.org/network/io-service;1"]
-                           .getService(Ci.nsIIOService);
 
         // Add a URI scheme since, by default, some protocols (i.e. IRC) don't
         // have a URI scheme before the host.
-        let uri = ioService.newURI(this.uriScheme + this.host, null, null);
+        let uri = Services.io.newURI(this.uriScheme + this.host, null, null);
+        // XXX use asyncResolve
         this.proxy = proxyService.resolve(uri, this.proxyFlags);
       } catch(e) {
         // We had some error getting the proxy service, just don't use one
@@ -180,7 +179,7 @@ const Socket = {
   reconnect: function() {
     // If there's nothing to reconnect to or we're connected, do nothing
     if (!this.transport.isAlive() && this.host && this.port)
-      connect(this.host, this.port, this.security || [], this.proxy || null);
+      connect(this.host, this.port, this.security || [], this.proxy);
   },
 
   // Disconnect all open streams.
@@ -192,7 +191,8 @@ const Socket = {
       this._inputStream.close();
     if (this._outputStream)
       this._outputStream.close();
-    // this._socketTransport.close(Components.results.NS_OK);
+    if (this.transport)
+      this.transport.close(Cr.NS_OK);
 
     // XXX should this call an onDisconnect function?
 
@@ -286,21 +286,21 @@ const Socket = {
                                      .concat(this._binaryInputStream
                                                  .readByteArray(aCount));
 
-      // This will be our array buffer
+      // This will be our ArrayBuffer
       let buffer;
 
       if (this.inputSegmentSize) {
         // If we're looking for a certain amount of data
-        if (this._incomingDataBuffer.length >= this.inputSegmentSize) {
+        while (this._incomingDataBuffer.length >= this.inputSegmentSize) {
           // If we have enough data, report it
           buffer = new ArrayBuffer(this.inputSegmentSize);
-          let uintArray = new Uint8Array(buffer);
-          uintArray.set(this._incomingDataBuffer.slice(0,
-                                                       this.inputSegmentSize));
 
-          // Save the extra data
-          this._incomingDataBuffer = this._incomingDataBuffer
-                                         .slice(this.inputSegmentSize);
+          // Create a new ArraybufferView
+          let uintArray = new Uint8Array(buffer);
+          // Set the data into the array while saving the extra data
+          uintArray.set(this._incomingDataBuffer
+                            .splice(0, this.inputSegmentSize));
+
 
           // Notify we've received data
           this.onBinaryDataReceived(buffer);
@@ -324,7 +324,7 @@ const Socket = {
         this._incomingDataBuffer = data.pop();
 
         // Send each string to the handle data function
-        data.forEach(this.onDataReceived)
+        data.forEach(this.onDataReceived, this);
       } else {
         // Send the whole string to the handle data function
         this.onDataReceived(this._scriptableInputStream.read(aCount));
@@ -370,9 +370,7 @@ const Socket = {
     this._outgoingDataBuffer = [];
   },
   _openStreams: function() {
-    let threadManager = Cc["@mozilla.org/thread-manager;1"]
-                           .getService(Ci.nsIThreadManager);
-    this.transport.setEventSink(this, threadManager.currentThread);
+    this.transport.setEventSink(this, Services.tm.currentThread);
 
     // No limit on the output stream buffer
     this._outputStream = this.transport.openOutputStream(0, // flags
