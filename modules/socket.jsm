@@ -98,13 +98,13 @@ const NS_ERROR_PROXY_CONNECTION_REFUSED = NS_ERROR_MODULE_NETWORK + 72;
 
 const BinaryInputStream =
   Components.Constructor("@mozilla.org/binaryinputstream;1",
-	                       "nsIBinaryInputStream", "setInputStream");
+                         "nsIBinaryInputStream", "setInputStream");
 const BinaryOutputStream =
-  Components.Constructor("@mozilla.org/binaryinputstream;1",
-	                       "nsIBinaryOutputStream", "setOututStream");
+  Components.Constructor("@mozilla.org/binaryoutputstream;1",
+                         "nsIBinaryOutputStream", "setOutputStream");
 const ScriptableInputStream =
   Components.Constructor("@mozilla.org/scriptableinputstream;1",
-	                       "nsIScriptableInputStream", "init");
+                         "nsIScriptableInputStream", "init");
 const ServerSocket =
   Components.Constructor("@mozilla.org/network/server-socket;1",
                          "nsIServerSocket", "init");
@@ -127,9 +127,9 @@ const Socket = {
   // Set this for the segment size of outgoing binary streams.
   outputSegmentSize: 0,
 
-  // Use this to add a URI scheme to the hostname when resolving the proxy, this
-  // may be unnecessary for some protocols.
-  uriScheme: "",
+  // Use this to specify a URI scheme to the hostname when resolving the proxy,
+  // this may be unnecessary for some protocols.
+  uriScheme: "http://",
 
   // Flags used by nsIProxyService when resolving a proxy.
   proxyFlags: Ci.nsIProtocolProxyService.RESOLVE_PREFER_SOCKS_PROXY,
@@ -151,15 +151,12 @@ const Socket = {
     this.port = aPort;
 
     // Array of security options
-    if (aSecurity)
-      this.security = aSecurity;
-    else
-      this.security = [];
+    this.security = aSecurity || [];
 
     // Choose a proxy, use the given one, otherwise get one from the proxy
     // service
     if (aProxy)
-      this.proxy = aProxy;
+      this._createTransport(aProxy);
     else {
       try {
         // Attempt to get a default proxy from the proxy service.
@@ -169,22 +166,21 @@ const Socket = {
         // Add a URI scheme since, by default, some protocols (i.e. IRC) don't
         // have a URI scheme before the host.
         let uri = Services.io.newURI(this.uriScheme + this.host, null, null);
-        this.proxy = proxyService.asyncResolve(uri, this.proxyFlags, this);
+        this.proxyCancel = proxyService.asyncResolve(uri, this.proxyFlags, this);
       } catch(e) {
-        // We had some error getting the proxy service, just don't use one
-        // Open the incoming and outgoing sockets
-        this._openStreams(null);
+        // We had some error getting the proxy service, just don't use one.
+        this._createTransport(null);
       }
     }
-
-    // XXX should this call an onConnected function?
   },
 
   // Reconnect to the current settings stored in the socket.
   reconnect: function() {
     // If there's nothing to reconnect to or we're connected, do nothing
-    if (!this.transport.isAlive() && this.host && this.port)
-      connect(this.host, this.port, this.security || [], this.proxy);
+    if (!this.isAlive() && this.host && this.port) {
+      this.disconnect();
+      this.connect(this.host, this.port, this.security, this.proxy);
+    }
   },
 
   // Disconnect all open streams.
@@ -199,7 +195,11 @@ const Socket = {
     if (this.transport)
       this.transport.close(Cr.NS_OK);
 
-    // XXX should this call an onDisconnect function?
+    if (this.proxyCancel) {
+      // Has to return a failure code
+      this.proxyCancel.close(Cr.NS_ERROR_ABORT);
+      delete this.proxyCancel;
+    }
   },
 
   // Listen for a connection on a port.
@@ -249,7 +249,9 @@ const Socket = {
   },
 
   isAlive: function() {
-    return (this.transport && this.transport.isAlive());
+    if (!this.transport)
+      return false;
+    return this.transport.isAlive();
   },
 
   /*
@@ -261,14 +263,15 @@ const Socket = {
    * nsIProtocolProxyCallback methods
    */
   onProxyAvailable: function(aRequest, aURI, aProxyInfo, aStatus) {
-    this._openStreams(aProxyInfo);
+    this._createTransport(aProxyInfo);
+    delete this.proxyCancel;
   },
 
   /*
    * nsIServerSocketListener methods
    */
   // Called after a client connection is accepted when we're listening for one.
-  onSocketAccepted: function(aSocket, aTransport) {
+  onSocketAccepted: function(aServerSocket, aTransport) {
     this.log("onSocketAccepted");
     // Store the values
     this.transport = aTransport;
@@ -300,30 +303,16 @@ const Socket = {
                                      .concat(this._binaryInputStream
                                                  .readByteArray(aCount));
 
-      // This will be our ArrayBuffer
-      let buffer;
+      let size = this.inputSegmentSize || this._incomingDataBuffer.length;
+      this.log(size + " " + this._incomingDataBuffer.length);
+      while (this._incomingDataBuffer.length >= size) {
+        let buffer = new ArrayBuffer(size);
 
-      if (this.inputSegmentSize) {
-        // If we're looking for a certain amount of data
-        while (this._incomingDataBuffer.length >= this.inputSegmentSize) {
-          // If we have enough data, report it
-          buffer = new ArrayBuffer(this.inputSegmentSize);
-
-          // Create a new ArraybufferView
-          let uintArray = new Uint8Array(buffer);
-          // Set the data into the array while saving the extra data
-          uintArray.set(this._incomingDataBuffer
-                            .splice(0, this.inputSegmentSize));
-
-
-          // Notify we've received data
-          this.onBinaryDataReceived(buffer);
-        }
-      } else {
-        // Send all the data we've received
-        buffer = new ArrayBuffer(data.length);
+        // Create a new ArraybufferView
         let uintArray = new Uint8Array(buffer);
-        uintArray.set(data);
+
+        // Set the data into the array while saving the extra data
+        uintArray.set(this._incomingDataBuffer.splice(0, size));
 
         // Notify we've received data
         this.onBinaryDataReceived(buffer);
@@ -377,13 +366,11 @@ const Socket = {
    *****************************************************************************
    */
   _resetBuffers: function() {
-    if (this.binaryMode)
-      this._incomingDataBuffer = [];
-    else
-      this._incomingDataBuffer = "";
+    this._incomingDataBuffer = this.binaryMode ? [] : "";
     this._outgoingDataBuffer = [];
   },
-  _openStreams: function(aProxy) {
+
+  _createTransport: function(aProxy) {
     this.proxy = aProxy;
 
     // Empty incoming and outgoing data storage buffers
@@ -396,6 +383,11 @@ const Socket = {
                                               this.security.length, this.host,
                                               this.port, this.proxy);
 
+    this._openStreams();
+  },
+
+  // Open the incoming and outgoing sockets.
+  _openStreams: function() {
     // Security notification callbacks (must support nsIBadCertListener2 and
     // nsISSLErrorListener for SSL connections, and possibly other interfaces).
     this.transport.securityCallbacks = this;
@@ -473,7 +465,7 @@ const Socket = {
    * nsITransportEventSink methods
    */
   onTransportStatus: function(aTransport, aStatus, aProgress, aProgressmax) { }
-}
+};
 
 
 // Test some stuff out
