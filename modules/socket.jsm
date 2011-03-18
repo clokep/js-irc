@@ -166,7 +166,7 @@ const Socket = {
         // Add a URI scheme since, by default, some protocols (i.e. IRC) don't
         // have a URI scheme before the host.
         let uri = Services.io.newURI(this.uriScheme + this.host, null, null);
-        this.proxyCancel = proxyService.asyncResolve(uri, this.proxyFlags, this);
+        this._proxyCancel = proxyService.asyncResolve(uri, this.proxyFlags, this);
       } catch(e) {
         // We had some error getting the proxy service, just don't use one.
         this._createTransport(null);
@@ -188,17 +188,22 @@ const Socket = {
     this.log("Disconnect");
 
     // Close all input and output streams.
-    if (this._inputStream)
+    if ("_inputStream" in this) {
       this._inputStream.close();
-    if (this._outputStream)
+      delete this._inputStream;
+    }
+    if ("_outputStream" in this) {
       this._outputStream.close();
-    if (this.transport)
+      delete this._outputStream;
+    }
+    if ("transport" in this) {
       this.transport.close(Cr.NS_OK);
+      delete this.transport;
+    }
 
-    if (this.proxyCancel) {
-      // Has to return a failure code
-      this.proxyCancel.close(Cr.NS_ERROR_ABORT);
-      delete this.proxyCancel;
+    if ("_proxyCancel" in this) {
+      this._proxyCancel.cancel(Cr.NS_ERROR_ABORT); // Has to give a failure code
+      delete this._proxyCancel;
     }
   },
 
@@ -215,7 +220,7 @@ const Socket = {
   stopListening: function() {
     this.log("Stop listening");
     // Close the socket to stop listening.
-    if (this.serverSocket)
+    if ("serverSocket" in this)
       this.serverSocket.close();
   },
 
@@ -264,7 +269,7 @@ const Socket = {
    */
   onProxyAvailable: function(aRequest, aURI, aProxyInfo, aStatus) {
     this._createTransport(aProxyInfo);
-    delete this.proxyCancel;
+    delete this._proxyCancel;
   },
 
   /*
@@ -288,7 +293,8 @@ const Socket = {
   // The server socket is effectively dead after this notification.
   onStopListening: function(aSocket, aStatus) {
     this.log("onStopListening");
-    delete this.serverSocket;
+    if ("serverSocket" in this)
+      delete this.serverSocket;
   },
 
   /*
