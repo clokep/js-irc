@@ -53,6 +53,7 @@ function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
 }
 Chat.prototype = {
+  __proto__: GenericConvChatPrototype,
   sendMsg: function(aMessage) {
     // Only send message if we're in the room
     // XXX is this the expected behavior?
@@ -119,18 +120,18 @@ Chat.prototype = {
     this._participants = {};
   }
 };
-Chat.prototype.__proto__ = GenericConvChatPrototype;
 
 function ConvChatBuddy(aName) {
   // XXX move this outside the function?
   const nameModes = {"@": "op", "%": "halfOp", "+": "voiced"};
   if (aName[0] in nameModes) {
     this[nameModes[aName[0]]] = true;
-    aName = aName.slice(1)
+    aName = aName.slice(1);
   }
   this._name = aName;
 }
 ConvChatBuddy.prototype = {
+  __proto__: GenericConvChatBuddyPrototype,
   _setMode: function(aNewMode) {
     const modes = {"a": "away", // User is flagged as away
                    "i": "invisible", // Marks a user as invisible
@@ -152,12 +153,12 @@ ConvChatBuddy.prototype = {
     }
   }
 };
-ConvChatBuddy.prototype.__proto__ = GenericConvChatBuddyPrototype;
 
 function Conversation(aAccount, aName) {
   this._init(aAccount, aName);
 }
 Conversation.prototype = {
+  __proto__: GenericConvIMPrototype,
   sendMsg: function(aMessage) {
     this.account._sendMessage("PRIVMSG", [aMessage], this.name);
     this.writeMessage(this.account._nickname,
@@ -168,15 +169,16 @@ Conversation.prototype = {
     this.account._removeConversation(this.name);
   }
 };
-Conversation.prototype.__proto__ = GenericConvIMPrototype;
 
 function ircSocket(aAccount, aOnDataReceived) {
-  this.delimiter = "\r\n";
-  this.uriScheme = "irc://";
   this.onDataReceived = aAccount._handleMessage.bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
 }
-ircSocket.prototype.__proto__ = Socket;
+ircSocket.prototype = {
+  __proto__: Socket,
+  delimiter: "\r\n",
+  uriScheme: "irc://"
+};
 
 function Account(aProtoInstance, aKey, aName) {
   this._init(aProtoInstance, aKey, aName);
@@ -196,6 +198,7 @@ function Account(aProtoInstance, aKey, aName) {
   this._realname = this.getString("realname");
 }
 Account.prototype = {
+  __proto__: GenericAccountPrototype,
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
 
@@ -235,7 +238,7 @@ Account.prototype = {
     let params = [aComponents.getValue("channel")];
     if (aComponents.getValue("password"))
       params.push(aComponents.getValue("password"));
-    this._sendMessage("JOIN", params)
+    this._sendMessage("JOIN", params);
   },
 
   chatRoomFields: {
@@ -349,12 +352,12 @@ Account.prototype = {
     this.base.disconnected();
   }
 };
-Account.prototype.__proto__ = GenericAccountPrototype;
 
 function Protocol() {
   this.registerCommands();
 }
 Protocol.prototype = {
+  __proto__: GenericProtocolPrototype,
   get name() "I R C",
   get iconBaseURI() "chrome://prpl-irc/skin/",
   get baseId() "prpl-irc",
@@ -383,6 +386,5 @@ Protocol.prototype = {
   getAccount: function(aKey, aName) new Account(this, aKey, aName),
   classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}")
 };
-Protocol.prototype.__proto__ = GenericProtocolPrototype;
 
 const NSGetFactory = XPCOMUtils.generateNSGetFactory([Protocol]);
