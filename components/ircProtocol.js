@@ -173,7 +173,8 @@ Conversation.prototype.__proto__ = GenericConvIMPrototype;
 function ircSocket(aAccount, aOnDataReceived) {
   this.delimiter = "\r\n";
   this.uriScheme = "irc://";
-  this.onDataReceived = aOnDataReceived.bind(aAccount);
+  this.onDataReceived = aAccount._handleMessage.bind(aAccount);
+  this.onConnection = aAccount._connectionRegistration.bind(aAccount);
 }
 ircSocket.prototype.__proto__ = Socket;
 
@@ -210,10 +211,8 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    this._socket = new ircSocket(this, this._handleMessage);
+    this._socket = new ircSocket(this);
     this._socket.connect(this._server, this._port, this._ssl, null, false, "\r\n");
-
-    this._connectionRegistration();
   },
 
   // When the user clicks "Disconnect" in account manager

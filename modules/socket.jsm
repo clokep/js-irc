@@ -45,8 +45,8 @@
  * simple(r) use of sockets code.
  *
  * This implements nsIServerSocketListener, nsIStreamListener,
- * nsIRequestObserver, nsITransportEventSink, nsIBadCertListener2, and
- * nsISSLErrorListener.
+ * nsIRequestObserver, nsITransportEventSink, nsIBadCertListener2,
+ * nsISSLErrorListener, and nsIProtocolProxyCallback.
  *
  * This uses nsISocketTransportServices, nsIServerSocket, nsIThreadManager,
  * nsIBinaryInputStream, nsIScriptableInputStream, nsIInputStreamPump,
@@ -58,11 +58,13 @@
  *   .reconnect()
  *   .listen(port)
  *   .send(String data)
+ *   .isAlive()
  * High-level properties:
  *   XXX Need to include properties here
  *
  * Users should "subclass" this object, i.e. set their .__proto__ to be it. And
  * then implement:
+ *   onConnection()
  *   onConnectionHeard()
  *   onConnectionTimedOut()
  *   onConnectionReset()
@@ -129,8 +131,13 @@ const Socket = {
   // may be unnecessary for some protocols.
   uriScheme: "",
 
-  // Flags used by nsIProxyService when resolving a proxy
+  // Flags used by nsIProxyService when resolving a proxy.
   proxyFlags: Ci.nsIProtocolProxyService.RESOLVE_PREFER_SOCKS_PROXY,
+
+  // Time for nsISocketTransport to continue trying before reporting a failure,
+  // 0 is forever.
+  connectTimeout: 0,
+  readWriteTimeout: 0,
 
   /*
    *****************************************************************************
@@ -162,31 +169,13 @@ const Socket = {
         // Add a URI scheme since, by default, some protocols (i.e. IRC) don't
         // have a URI scheme before the host.
         let uri = Services.io.newURI(this.uriScheme + this.host, null, null);
-        // XXX use asyncResolve
-        this.proxy = proxyService.resolve(uri, this.proxyFlags);
+        this.proxy = proxyService.asyncResolve(uri, this.proxyFlags, this);
       } catch(e) {
         // We had some error getting the proxy service, just don't use one
-        this.proxy = null;
+        // Open the incoming and outgoing sockets
+        this._openStreams(null);
       }
     }
-
-    // Empty incoming and outgoing data storage buffers
-    this._resetBuffers();
-
-    // Create a socket transport
-    let socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
-                      .getService(Ci.nsISocketTransportService);
-    this.transport = socketTS.createTransport(this.security,
-                                              this.security.length, this.host,
-                                              this.port, this.proxy);
-
-    // Security notification callbacks (must support nsIBadCertListener2 and
-    // nsISSLErrorListener for SSL connections, and possibly other interfaces).
-    this.transport.securityCallbacks = this;
-
-    // XXX this.transport.setTimeout(); for TIMEOUT_CONNECT and TIMEOUT_READ_WRITE
-    // Open the incoming and outgoing sockets
-    this._openStreams();
 
     // XXX should this call an onConnected function?
   },
@@ -211,11 +200,10 @@ const Socket = {
       this.transport.close(Cr.NS_OK);
 
     // XXX should this call an onDisconnect function?
-
   },
 
   // Listen for a connection on a port.
-  // XXX take a timeout and then call stopListening?
+  // XXX take a timeout and then call stopListening
   listen: function(port) {
     this.log("Listening on port " + port);
 
@@ -234,6 +222,7 @@ const Socket = {
   // Send data on the output stream.
   sendData: function(/* string */ aData) {
     this.log("Send data: <" + aData + ">");
+
     try {
       this._outputStream.write(aData + this.delimiter,
                                aData.length + this.delimiter.length);
@@ -259,11 +248,22 @@ const Socket = {
     }
   },
 
+  isAlive: function() {
+    return (this.transport && this.transport.isAlive());
+  },
+
   /*
    *****************************************************************************
    ***************************** Interface methods *****************************
    *****************************************************************************
    */
+  /*
+   * nsIProtocolProxyCallback methods
+   */
+  onProxyAvailable: function(aRequest, aURI, aProxyInfo, aStatus) {
+    this._openStreams(aProxyInfo);
+  },
+
   /*
    * nsIServerSocketListener methods
    */
@@ -383,7 +383,34 @@ const Socket = {
       this._incomingDataBuffer = "";
     this._outgoingDataBuffer = [];
   },
-  _openStreams: function() {
+  _openStreams: function(aProxy) {
+    this.proxy = aProxy;
+
+    // Empty incoming and outgoing data storage buffers
+    this._resetBuffers();
+
+    // Create a socket transport
+    let socketTS = Cc["@mozilla.org/network/socket-transport-service;1"]
+                      .getService(Ci.nsISocketTransportService);
+    this.transport = socketTS.createTransport(this.security,
+                                              this.security.length, this.host,
+                                              this.port, this.proxy);
+
+    // Security notification callbacks (must support nsIBadCertListener2 and
+    // nsISSLErrorListener for SSL connections, and possibly other interfaces).
+    this.transport.securityCallbacks = this;
+
+    // Set the timeouts for the nsISocketTransport for both a connect event and
+    // a read/write. Only set them if the user has provided them.
+    if (this.connectTimeout) {
+      this.transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT,
+                                this.connectTimeout);
+    }
+    if (this.readWriteTimeout) {
+      this.transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_READ_WRITE,
+                                this.connectTimeout);
+    }
+
     this.transport.setEventSink(this, Services.tm.currentThread);
 
     // No limit on the output stream buffer
@@ -416,6 +443,9 @@ const Socket = {
                                     0, // Use default segment length
                                     false); // Do not close when done
     this.pump.asyncRead(this, this);
+
+    // Notify that connection is finished.
+    this.onConnection();
   },
 
   /*
@@ -424,6 +454,8 @@ const Socket = {
    *****************************************************************************
    */
   log: function(aString) { },
+  // Called when a connection is established.
+  onConnection: function() { },
   // Called when a socket is accepted after listening.
   onConnectionHeard: function() { },
   // Called when a connection times out.
