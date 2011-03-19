@@ -34,7 +34,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["dump", "normalize", "handleMessage", "isMUCName"];
+var EXPORTED_SYMBOLS = ["dump", "normalize", "isMUCName"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 

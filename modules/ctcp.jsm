@@ -92,18 +92,18 @@ var ctcp = {
   //
   "PRIVMSG": function (aMessage) {
     // Check if there's a CTCP message
-    if (aMessage.params[1][0] == "\001") {
-      let messages = ctcpParse.call(this, aMessage);
-      messages.forEach(function(aMessage) {
-        dump(JSON.stringify(aMessage));
-        if (_ctcp.hasOwnProperty(aMessage.ctcpType))
-          return _ctcp[aMessage.ctcpType].call(this, aMessage);
-        // XXX Throw an error (reply w/ NOTICE ERRMSG)
-        return false;
-      }, this);
-      return true;
-    }
-    return false;
+    if (aMessage.params[1][0] != "\001")
+      return false;
+
+    let messages = ctcpParse.call(this, aMessage);
+    messages.forEach(function(aMessage) {
+      dump(JSON.stringify(aMessage));
+      if (_ctcp.hasOwnProperty(aMessage.ctcpType))
+        return _ctcp[aMessage.ctcpType].call(this, aMessage);
+      // XXX Throw an error (reply w/ NOTICE ERRMSG)
+      return false;
+    }, this);
+    return true;
   },
   //
   "NOTICE": function(aMessage) {
