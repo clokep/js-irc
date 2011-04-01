@@ -23,7 +23,7 @@ File Transfer / CTCP extensions:
   DCC specification (superseded fully by CTCP specification)
     http://www.irchelp.org/irchelp/rfc/dccspec.html
   CTCP specification
-    http://www.irchelp.org/irchelp/rfc/ctcpspec.html
+    http://www.alien.net.au/irc/ctcp.txt
   Updated CTCP specification
     http://www.invlogic.com/irc/ctcp.html
     This is not fully supported by clients
@@ -41,16 +41,24 @@ File Transfer / CTCP extensions:
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-files-00.txt
     http://www.dcc2.org/files/dcc2/draft-smith-irc-dcc2-negotiation-00.txt
     This doesn't seem done
+  DCC Resume
+    http://www.mirc.co.uk/help/dccresum.txt
   See http://www.kvirc.de/docu/doc_dcc_connection.html for an overall comparison
   and explanation of the extensions to DCC.
 
 Extension Support:
-  ISupport
+  USERCMDPFX ISUPPORT token
+    http://tools.ietf.org/html/draft-brocklesby-irc-usercmdpfx-02
+  IRC client capabilities negotiation
+    http://tools.ietf.org/html/draft-baudis-irc-capab-00
+  ISupport numeric
     http://tools.ietf.org/html/draft-brocklesby-irc-isupport-03
     Response code 005; supported by most servers
-  Updated ISupport
+  Updated ISupport numeric
     http://tools.ietf.org/html/draft-hardy-irc-isupport-00
-  IRC Capabilities
+  Client Capab Proposal (v5)
+    http://www.leeh.co.uk/ircd/client-cap.txt
+  IRC Client Capabilities Extension
     http://tools.ietf.org/html/draft-mitchell-irc-capabilities-01
     http://www.leeh.co.uk/draft-mitchell-irc-capabilities-02.html
     Standardization for reporting extensions
@@ -111,3 +119,7 @@ Other:
   NAMESX
     http://wiki.inspircd.org/Modules/namesx
     Send all modes of a user
+  STARTTLS
+    http://wiki.inspircd.org/STARTTLS_Documentation
+  General comparison of feature support
+    http://www.alien.net.au/irc/
