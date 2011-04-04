@@ -557,12 +557,8 @@ const GenericConvChatPrototype = {
   get topicSetter() this._topicSetter,
   get left() false,
 
-  getParticipants: function() {
-    return new nsSimpleEnumerator(
-      Object.keys(this._participants)
-            .map(function(key) this._participants[key], this)
-    );
-  },
+  getParticipants: function()
+    new nsSimpleEnumerator([p for each (p in this._participants)]),
 
   writeMessage: function (aWho, aText, aProperties) {
     aProperties.containsNick = aText.indexOf(this.nick) != -1;
