@@ -70,7 +70,7 @@ function joinCommand(aMsg, aConv) {
         params.push(keys[i]);
 
       // params is (<channel>, [<channel>])
-      account._sendMessage(new Message("JOIN", params));
+      account._sendMessage(Message("JOIN", params));
     }
     return true;
   }
@@ -92,7 +92,7 @@ function kickCommand(aMsg, aConv) {
     // params is (<channel>, <user>, [comment])
     params.unshift(aConv.name);
 
-    ircAccounts[aConv.account.id]._sendMessage(new Message("PART", params));
+    ircAccounts[aConv.account.id]._sendMessage(Message("KICK", params));
     return true;
   }
   return false;
@@ -113,7 +113,7 @@ function setMode(aMsg, aConv, aMode, aAddMode) {
   if (aMsg.length) {
     let mode = (!!aAddMode ? "+" : "-") + aMode;
     ircAccounts[aConv.account.id]
-               ._sendMessage(new Message("MODE", [aNickname, mode]));
+               ._sendMessage(Message("MODE", [aNickname, mode]));
     return true;
   }
   return false;
@@ -131,20 +131,20 @@ function privateMessage(aConv, aMsg, aNickname) {
 // This will send a command directly where aMsg is the entire parameter
 function simpleCommand(aConv, aCommand, aMsg) {
   if (aMsg.length) {
-    ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand, [aMsg]));
+    ircAccounts[aConv.account.id]._sendMessage(Message(aCommand, [aMsg]));
     return true;
   }
   return false;
 }
 
 function noParamCommand(aConv, aCommand) {
-  ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand));
+  ircAccounts[aConv.account.id]._sendMessage(Message(aCommand));
   return true;
 }
 
 function ctcpMessage(aConv, aTarget, aCommand, aMessage) {
   if (aMessage.length && aTarget.length) {
-    ircAccounts[aConv.account.id]._sendMessage(new Message("PRIVMSG", [aTarget,
+    ircAccounts[aConv.account.id]._sendMessage(Message("PRIVMSG", [aTarget,
                                   "\001" + aCommand + " " + aMessage + "\001"]));
     return true;
   }
@@ -155,7 +155,7 @@ function targetedMessage(aConv, aCommand, aMessage) {
   let params = aMessage.split(" ");
   if (params.length > 1) {
     params = [params[0], params.slice(1).join(" ")];
-    ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand, params));
+    ircAccounts[aConv.account.id]._sendMessage(Message(aCommand, params));
     return true;
   }
   return false;
@@ -233,7 +233,15 @@ var commands = [
   {
     name: "me",
     helpString: "me <action to perform>:  Perform an action.",
-    run: function(aMsg, aConv) ctcpMessage(aConv, aConv.name, "ACTION", aMsg)
+    run: function(aMsg, aConv) {
+      if (ctcpMessage(aConv, aConv.name, "ACTION", aMsg)) {
+        // Show the action on our conversation
+        aConv.writeMessage(aConv.account._nickname, "/me " + aMsg,
+                           {outgoing: true});
+        return true;
+      }
+      return false;
+    }
   },
   {
     name: "memoserv",
@@ -266,7 +274,7 @@ var commands = [
     run: function(aMsg, aConv) {
       // Ensure the new nick is a valid nickname
       if (aMsg.match(nicknameRegexp)) {
-        ircAccounts[aConv.account.id]._sendMessage(new Message("NICK", [aMsg]));
+        ircAccounts[aConv.account.id]._sendMessage(Message("NICK", [aMsg]));
         return true;
       }
       // XXX error message on bad nick?
@@ -316,7 +324,7 @@ var commands = [
       else
         params = [aMsg];
 
-      ircAccounts[aConv.account.id]._sendMessage(new Message("PART", params));
+      ircAccounts[aConv.account.id]._sendMessage(Message("PART", params));
       return true;
     }
   },
@@ -351,7 +359,7 @@ var commands = [
     helpString: "quote <command>:  Send a raw command to the server.",
     run: function(aMsg, aConv)  {
       if (aMsg.length) {
-        ircAccounts[aConv.account.id]._sendMessage(new Message(aMsg));
+        ircAccounts[aConv.account.id]._sendMessage(Message(aMsg));
         return true;
       }
       return false;
@@ -402,7 +410,7 @@ var commands = [
     run: function(aMsg, aConv) {
       if (aMsg.length) {
         let params = aMsg.split(" ");
-        ircAccounts[aConv.account.id]._sendMessage(new Message("WHOIS", params));
+        ircAccounts[aConv.account.id]._sendMessage(Message("WHOIS", params));
         return true;
       }
       return false;

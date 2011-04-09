@@ -126,7 +126,6 @@ var irc = {
       if (normalize(aMessage.nickname) == normalize(this._nickname)) {
         // If you join, clear the participants list to avoid errors w/ repeated
         // participants
-        dump("removing participants");
         conversation._removeAllParticipants();
       } else {
         // Don't worry about adding ourself, RPL_NAMES takes care of that case
@@ -230,7 +229,7 @@ var irc = {
   "PING": function(aMessage) {
     // PING <server1 [ <server2> ]
     // Keep the connection alive
-    this._sendMessage(new Message("PONG", [aMessage.params[0]]));
+    this._sendMessage(Message("PONG", [aMessage.params[0]]));
     return true;
   },
   "PRIVMSG": function(aMessage) {
@@ -1106,7 +1105,7 @@ var irc = {
       String.fromCharCode(
       aMessage.params[1].charCodeAt(aMessage.params[1].length - 1) + 1
       );
-    this._sendMessage(new Message("NICK", [this._nickname])); // Nick message
+    this._sendMessage(Message("NICK", [this._nickname])); // Nick message
     // XXX inform user?
     this._getConversation(aMessage.source).writeMessage(
       aMessage.source,
