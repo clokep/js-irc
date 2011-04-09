@@ -47,7 +47,7 @@ Cu.import("resource://irc-js/irc.jsm");
 Cu.import("resource://irc-js/ctcp.jsm");
 var specifications = [ctcp, irc];
 
-Cu.import("resource://irc-js/socket.jsm");
+Cu.import("resource://irc-js/socket.jsm"); // XXX custom socket
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);

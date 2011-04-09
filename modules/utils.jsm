@@ -70,4 +70,4 @@ function Message(aCommand, aParams, aTarget) {
   }
   // XXX should check length of aMessage?
   return message;
-},
+}
