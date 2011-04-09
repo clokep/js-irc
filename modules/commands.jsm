@@ -70,7 +70,7 @@ function joinCommand(aMsg, aConv) {
         params.push(keys[i]);
 
       // params is (<channel>, [<channel>])
-      account._sendMessage("JOIN", params);
+      account._sendMessage(new Message("JOIN", params));
     }
     return true;
   }
@@ -92,7 +92,7 @@ function kickCommand(aMsg, aConv) {
     // params is (<channel>, <user>, [comment])
     params.unshift(aConv.name);
 
-    ircAccounts[aConv.account.id]._sendMessage("PART", params);
+    ircAccounts[aConv.account.id]._sendMessage(new Message("PART", params));
     return true;
   }
   return false;
@@ -112,7 +112,8 @@ function messageCommand(aMsg, aConv) {
 function setMode(aMsg, aConv, aMode, aAddMode) {
   if (aMsg.length) {
     let mode = (!!aAddMode ? "+" : "-") + aMode;
-    ircAccounts[aConv.account.id]._sendMessage("MODE", [aNickname, mode]);
+    ircAccounts[aConv.account.id]
+               ._sendMessage(new Message("MODE", [aNickname, mode]));
     return true;
   }
   return false;
@@ -130,21 +131,21 @@ function privateMessage(aConv, aMsg, aNickname) {
 // This will send a command directly where aMsg is the entire parameter
 function simpleCommand(aConv, aCommand, aMsg) {
   if (aMsg.length) {
-    ircAccounts[aConv.account.id]._sendMessage(aCommand, [aMsg]);
+    ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand, [aMsg]));
     return true;
   }
   return false;
 }
 
 function noParamCommand(aConv, aCommand) {
-  ircAccounts[aConv.account.id]._sendMessage(aCommand);
+  ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand));
   return true;
 }
 
 function ctcpMessage(aConv, aTarget, aCommand, aMessage) {
   if (aMessage.length && aTarget.length) {
-    ircAccounts[aConv.account.id]._sendMessage("PRIVMSG", [aTarget,
-                                  "\001" + aCommand + " " + aMessage + "\001"]);
+    ircAccounts[aConv.account.id]._sendMessage(new Message("PRIVMSG", [aTarget,
+                                  "\001" + aCommand + " " + aMessage + "\001"]));
     return true;
   }
   return false;
@@ -154,7 +155,7 @@ function targetedMessage(aConv, aCommand, aMessage) {
   let params = aMessage.split(" ");
   if (params.length > 1) {
     params = [params[0], params.slice(1).join(" ")];
-    ircAccounts[aConv.account.id]._sendMessage(aCommand, params);
+    ircAccounts[aConv.account.id]._sendMessage(new Message(aCommand, params));
     return true;
   }
   return false;
@@ -265,7 +266,7 @@ var commands = [
     run: function(aMsg, aConv) {
       // Ensure the new nick is a valid nickname
       if (aMsg.match(nicknameRegexp)) {
-        ircAccounts[aConv.account.id]._sendMessage("NICK", [aMsg]);
+        ircAccounts[aConv.account.id]._sendMessage(new Message("NICK", [aMsg]));
         return true;
       }
       // XXX error message on bad nick?
@@ -315,7 +316,7 @@ var commands = [
       else
         params = [aMsg];
 
-      ircAccounts[aConv.account.id]._sendMessage("PART", params);
+      ircAccounts[aConv.account.id]._sendMessage(new Message("PART", params));
       return true;
     }
   },
@@ -350,7 +351,7 @@ var commands = [
     helpString: "quote <command>:  Send a raw command to the server.",
     run: function(aMsg, aConv)  {
       if (aMsg.length) {
-        ircAccounts[aConv.account.id]._sendMessage(aMsg);
+        ircAccounts[aConv.account.id]._sendMessage(new Message(aMsg));
         return true;
       }
       return false;
@@ -401,7 +402,7 @@ var commands = [
     run: function(aMsg, aConv) {
       if (aMsg.length) {
         let params = aMsg.split(" ");
-        ircAccounts[aConv.account.id]._sendMessage("WHOIS", params);
+        ircAccounts[aConv.account.id]._sendMessage(new Message("WHOIS", params));
         return true;
       }
       return false;

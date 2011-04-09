@@ -58,7 +58,7 @@ Chat.prototype = {
     // Only send message if we're in the room
     // XXX is this the expected behavior?
     if (this._hasParticipant(this.account._nickname)) {
-      this.account._sendMessage("PRIVMSG", [aMessage], this.name);
+      this.account._sendMessage(new Message("PRIVMSG", [aMessage], this.name));
       this.writeMessage(this.account._nickname,
                         aMessage,
                         {outgoing: true});
@@ -66,7 +66,7 @@ Chat.prototype = {
   },
 
   unInit: function() {
-    this.account._sendMessage("PART", [this.name]);
+    this.account._sendMessage(new Message("PART", [this.name]));
     this.account._removeConversation(this.name);
   },
 
@@ -160,7 +160,7 @@ function Conversation(aAccount, aName) {
 Conversation.prototype = {
   __proto__: GenericConvIMPrototype,
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG", [aMessage], this.name);
+    this.account._sendMessage(new Message("PRIVMSG", [aMessage], this.name));
     this.writeMessage(this.account._nickname,
                       aMessage,
                       {outgoing: true});
@@ -206,9 +206,10 @@ Account.prototype = {
     dump(aStatusType + "\r\n<" + aMsg + ">");
     if (aStatusType == Ci.purpleICoreService.STATUS_OFFLINE ||
         aStatusType == Ci.purpleICoreService.STATUS_UNAVAILABLE)
-      this._sendMessage("AWAY", [aMsg || "I am away from my computer."]);
+      this._sendMessage(new Message("AWAY",
+                                    [aMsg || "I am away from my computer."]));
     else if (aStatusType == Ci.purpleICoreService.STATUS_AVAILABLE)
-      this._sendMessage("AWAY");
+      this._sendMessage(new Message("AWAY"));
   },
 
   connect: function() {
@@ -224,7 +225,7 @@ Account.prototype = {
       // Let the server know we're going to disconnect
       this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
       let quitMessage = this.getString("quitmsg");
-      this._sendMessage("QUIT", [quitMessage]); // RFC 2812 Section 3.1.7
+      this._sendMessage(new Message("QUIT", [quitMessage])); // RFC 2812 Section 3.1.7
     } else
       this._disconnect(); // We're not connected, just disconnect
   },
@@ -238,7 +239,7 @@ Account.prototype = {
     let params = [aComponents.getValue("channel")];
     if (aComponents.getValue("password"))
       params.push(aComponents.getValue("password"));
-    this._sendMessage("JOIN", params);
+    this._sendMessage(new Message("JOIN", params));
   },
 
   chatRoomFields: {
@@ -317,30 +318,19 @@ Account.prototype = {
       delete this._conversations[normalizedName];
   },
 
-  _sendMessage: function(aCommand, aParams, aTarget) {
-    let message = aCommand;
-    if (aTarget)
-      message += " " + aTarget;
-    if (aParams && aParams.length) {
-      // Join the parameters with spaces, except the last parameter which gets
-      // joined with a " :" before it (and can contain spaces)
-      let params = aParams.slice(0, -1);
-      params.push(":" + aParams.slice(-1));
-      message += " " + params.join(" ");
-    }
-    // XXX should check length of aMessage?
-    //message += "\r\n";
-    dump("Sending... <" + message.trim() + ">");
-    this._socket.sendData(message);
+  _sendMessage: function(aMessage) {
+    dump("Sending... <" + aMessage.trim() + ">");
+    this._socket.sendData(aMessage);
   },
 
   // Implement section 3.1 of RFC 2812
   _connectionRegistration: function() {
     if (this.password) // Password message, if provided
-      this._sendMessage("PASS", [], this.password);
-    this._sendMessage("NICK", [], this._nickname); // Nick message
-    this._sendMessage("USER", [this._username || this._nickname, this._mode,
-                               "*", this._realname || this._nickname]); // User message
+      this._sendMessage(new Message("PASS", [], this.password));
+    this._sendMessage(new Message("NICK", [], this._nickname)); // Nick message
+    this._sendMessage(new Message("USER", [this._username || this._nickname,
+                                  this._mode, "*",
+                                  this._realname || this._nickname])); // User message
   },
 
   _disconnect: function() {

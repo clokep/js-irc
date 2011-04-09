@@ -230,7 +230,7 @@ var irc = {
   "PING": function(aMessage) {
     // PING <server1 [ <server2> ]
     // Keep the connection alive
-    this._sendMessage("PONG", [aMessage.params[0]]);
+    this._sendMessage(new Message("PONG", [aMessage.params[0]]));
     return true;
   },
   "PRIVMSG": function(aMessage) {
@@ -1106,7 +1106,7 @@ var irc = {
       String.fromCharCode(
       aMessage.params[1].charCodeAt(aMessage.params[1].length - 1) + 1
       );
-    this._sendMessage("NICK", [this._nickname]); // Nick message
+    this._sendMessage(new Message("NICK", [this._nickname])); // Nick message
     // XXX inform user?
     this._getConversation(aMessage.source).writeMessage(
       aMessage.source,

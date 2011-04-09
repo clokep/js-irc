@@ -34,7 +34,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["dump", "normalize", "isMUCName"];
+var EXPORTED_SYMBOLS = ["dump", "normalize", "isMUCName", "Message"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
@@ -56,3 +56,18 @@ function normalize(aStr, aRemoveStatus) {
 function isMUCName(aStr) {
   return /^[&#+!]/.test(normalize(aStr));
 }
+
+function Message(aCommand, aParams, aTarget) {
+  let message = aCommand;
+  if (aTarget)
+    message += " " + aTarget;
+  if (aParams && aParams.length) {
+    // Join the parameters with spaces, except the last parameter which gets
+    // joined with a " :" before it (and can contain spaces)
+    let params = aParams.slice(0, -1);
+    params.push(":" + aParams.slice(-1));
+    message += " " + params.join(" ");
+  }
+  // XXX should check length of aMessage?
+  return message;
+},
