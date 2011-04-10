@@ -337,7 +337,7 @@ Account.prototype = {
     // force QUIT and close the sockets
     this.base.disconnecting(this._base.NO_ERROR, "Closing sockets.");
 
-    this._socket.close();
+    this._socket.disconnect();
 
     this.base.disconnected();
   }
