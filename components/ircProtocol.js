@@ -96,14 +96,13 @@ Chat.prototype = {
   },
   _removeParticipant: function(aNick) {
     if (this._hasParticipant(aNick)) {
-      let normalizedNick = normalize(aNick, true);
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
-      stringNickname.data = normalizedNick;
-      
+      stringNickname.data = aNick;
+
       this.notifyObservers(new nsSimpleEnumerator([stringNickname]),
                            "chat-buddy-remove");
-      delete this._participants[normalizedNick];
+      delete this._participants[normalize(aNick, true)];
     }
   },
   // Use this before joining to avoid errors of trying to re-add an existing
