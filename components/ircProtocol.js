@@ -95,11 +95,12 @@ Chat.prototype = {
     return this._participants[normalizedNick];
   },
   _removeParticipant: function(aNick) {
-    let normalizedNick = normalize(aNick, true);
     if (this._hasParticipant(aNick)) {
+      let normalizedNick = normalize(aNick, true);
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
-      stringNickname.data = aNick;
+      stringNickname.data = normalizedNick;
+      
       this.notifyObservers(new nsSimpleEnumerator([stringNickname]),
                            "chat-buddy-remove");
       delete this._participants[normalizedNick];
