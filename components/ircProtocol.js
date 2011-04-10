@@ -96,7 +96,7 @@ Chat.prototype = {
   },
   _removeParticipant: function(aNick) {
     let normalizedNick = normalize(aNick, true);
-    if (this._participants.hasOwnProperty(normalizedNick)) {
+    if (this._hasParticipant(aNick)) {
       let stringNickname = Cc["@mozilla.org/supports-string;1"]
                               .createInstance(Ci.nsISupportsString);
       stringNickname.data = aNick;

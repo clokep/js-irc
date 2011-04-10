@@ -735,9 +735,10 @@ var irc = {
     let conversation = this._getConversation(aMessage.params[1]);
     conversation.setTopic(null, aMessage.params[2]);
     // Send the message
+    // Need to convert the time from seconds to milliseconds for JavaScript
     var topicSetterMessage = "The topic for " + conversation.name + " was " +
                              "set by " + aMessage.params[2] + " at " +
-                              new Date(parseInt(aMessage.params[3]));
+                              new Date(parseInt(aMessage.params[3]) * 1000);
     conversation.writeMessage(null, topicSetterMessage, {system: true});
     return true;
   },

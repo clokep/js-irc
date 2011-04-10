@@ -48,7 +48,7 @@
 		<em:name>IRC in JavaScript</em:name>
 		<em:description>
       Replaces the libpurple IRC protocol with an implementation written in
-      JavaScript using jsProtoHelper.
+      JavaScript to offer more integration into Instantbird.
     </em:description>
 		<em:creator>Patrick Cloke</em:creator>
 
