@@ -353,7 +353,7 @@ Protocol.prototype = {
   get baseId() "prpl-irc",
 
   usernameSplits: [
-    {label: "Server", separator: "@", defaultValue: "irc.freenode.com",
+    {label: "Server", separator: "@", defaultValue: "chat.freenode.net",
      reverse: true}
   ],
 
