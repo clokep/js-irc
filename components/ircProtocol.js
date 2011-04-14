@@ -173,8 +173,6 @@ Conversation.prototype = {
 function ircSocket(aAccount, aOnDataReceived) {
   this.onDataReceived = aAccount._handleMessage.bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
-
-  this.onConnectionTimedOut =
 }
 ircSocket.prototype = {
   __proto__: Socket,
@@ -183,9 +181,7 @@ ircSocket.prototype = {
 
   // Let's keep track of what's going on in the socket
   onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
-  onConnectionReset: function() { Cu.reportError("Connection reset."); },
-
-
+  onConnectionReset: function() { Cu.reportError("Connection reset."); }
 };
 
 function Account(aProtoInstance, aKey, aName) {
