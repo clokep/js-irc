@@ -173,11 +173,19 @@ Conversation.prototype = {
 function ircSocket(aAccount, aOnDataReceived) {
   this.onDataReceived = aAccount._handleMessage.bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
+
+  this.onConnectionTimedOut =
 }
 ircSocket.prototype = {
   __proto__: Socket,
   delimiter: "\r\n",
-  uriScheme: "irc://"
+  uriScheme: "irc://",
+
+  // Let's keep track of what's going on in the socket
+  onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
+  onConnectionReset: function() { Cu.reportError("Connection reset."); },
+
+
 };
 
 function Account(aProtoInstance, aKey, aName) {
@@ -215,6 +223,12 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
+    // Remove the participants of all conversations so we don't get doubles
+    this._conversations.forEach(function (aConv) {
+      aConv._removeAllParticipants();
+    });
+
+    // Open the socket connection
     this._socket = new ircSocket(this);
     this._socket.connect(this._server, this._port, this._ssl, null, false, "\r\n");
   },

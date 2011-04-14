@@ -236,10 +236,10 @@ var commands = [
     run: function(aMsg, aConv) {
       if (ctcpMessage(aConv, aConv.name, "ACTION", aMsg)) {
         // Show the action on our conversation
-        ircAccounts[aConv.account.id]._getConversation(aConv.name)
-                                    .writeMessage(aConv.account._nickname,
-                                                  "/me " + aMsg,
-                                                  {outgoing: true});
+        let account = ircAccounts[aConv.account.id];
+        account._getConversation(aConv.name)
+               .writeMessage(account._nickname, "/me " + aMsg,
+                             {outgoing: true});
         return true;
       }
       return false;
