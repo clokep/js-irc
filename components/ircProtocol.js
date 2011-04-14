@@ -275,8 +275,13 @@ Account.prototype = {
     for (let i = 0; i < specifications.length; i++) {
       let spec = specifications[i];
       // If the command exists in the spec, execute it
-      if (spec.hasOwnProperty(command))
-        handled = spec[command].call(this, message);
+      if (spec.hasOwnProperty(command)) {
+        try {
+          handled = spec[command].call(this, message);
+        } catch (e) {
+          Cu.reportError(e);
+        }
+      }
 
       // Message was handled, cut out early
       if (handled)
