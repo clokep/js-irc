@@ -221,7 +221,7 @@ Account.prototype = {
 
     // Remove the participants of all conversations so we don't get doubles
     Object.keys(this._conversations).forEach(function (aConvName) {
-      this._conversations._getConversation(aConvName)._removeAllParticipants();
+      this._getConversation(aConvName)._removeAllParticipants();
     }, this);
 
     // Open the socket connection

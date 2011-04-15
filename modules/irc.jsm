@@ -104,13 +104,8 @@ var irc = {
   "ERROR": function(aMessage) {
     // ERROR <error message>
     // Client connection has been terminated
-    for each (let conversation in this._conversations) {
-      conversation.writeMessage(aMessage.source,
-                  "Your account has been disconnected.",
-                  {system: true});
-    }
-    // Notify account manager
-    this._disconnect();
+
+    this._disconnect(); // Notify account manager
     return true;
   },
   "INVITE": function(aMessage) {
