@@ -220,9 +220,9 @@ Account.prototype = {
     this.base.connecting();
 
     // Remove the participants of all conversations so we don't get doubles
-    this._conversations.forEach(function (aConv) {
-      aConv._removeAllParticipants();
-    });
+    Object.keys(this._conversations).forEach(function (aConvName) {
+      this._conversations._getConversation(aConvName)._removeAllParticipants();
+    }, this);
 
     // Open the socket connection
     this._socket = new ircSocket(this);
