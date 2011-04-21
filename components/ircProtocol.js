@@ -173,6 +173,13 @@ Conversation.prototype = {
 function ircSocket(aAccount, aOnDataReceived) {
   this.onDataReceived = aAccount._handleMessage.bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
+  this.onConnectionReset = (function () {
+    // Display the error in the account manager
+    this.base.disconnecting(Ci.purpleIAccount.ERROR_NETWORK_ERROR,
+                            "Connection reset.");
+    this.base.disconnected(); // Start the reconnection timer
+    Cu.reportError("Connection reset.");
+  }).bind(aAccount);
 }
 ircSocket.prototype = {
   __proto__: Socket,
@@ -180,8 +187,7 @@ ircSocket.prototype = {
   uriScheme: "irc://",
 
   // Let's keep track of what's going on in the socket
-  onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
-  onConnectionReset: function() { Cu.reportError("Connection reset."); }
+  onConnectionTimedOut: function() { Cu.reportError("Timed out"); }
 };
 
 function Account(aProtoInstance, aKey, aName) {
