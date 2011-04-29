@@ -178,6 +178,7 @@ function ircSocket(aAccount, aOnDataReceived) {
     this.base.disconnecting(Ci.purpleIAccount.ERROR_NETWORK_ERROR,
                             "Connection reset.");
     this.base.disconnected(); // Start the reconnection timer
+    this._socket.disconnect();
     Cu.reportError("Connection reset.");
   }).bind(aAccount);
 }
