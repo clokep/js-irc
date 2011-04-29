@@ -188,7 +188,10 @@ ircSocket.prototype = {
   uriScheme: "irc://",
 
   // Let's keep track of what's going on in the socket
-  onConnectionTimedOut: function() { Cu.reportError("Timed out"); }
+  onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
+  onCertificationError: function(aSocketInfo, aStatus, aTargetSite) {
+    Cu.reportError("Cert error");
+  }
 };
 
 function Account(aProtoInstance, aKey, aName) {
