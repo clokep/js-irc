@@ -509,6 +509,9 @@ const Socket = {
     countRef.value = interfaces.length;
     return interfaces;
   },
+  getInterface: function(iid) {
+    return this.QueryInterface(iid);
+  },
   getHelperForLanguage: function(language) null,
   contractID: null,
   classID: null,
