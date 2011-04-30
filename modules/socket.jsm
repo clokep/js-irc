@@ -134,8 +134,8 @@ const Socket = {
   // Flags used by nsIProxyService when resolving a proxy.
   proxyFlags: Ci.nsIProtocolProxyService.RESOLVE_PREFER_SOCKS_PROXY,
 
-  // Time for nsISocketTransport to continue trying before reporting a failure,
-  // 0 is forever.
+  // Time (in seconds) for nsISocketTransport to continue trying before
+  // reporting a failure, 0 is forever.
   connectTimeout: 0,
   readWriteTimeout: 0,
 
