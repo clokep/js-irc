@@ -59,14 +59,13 @@ Chat.prototype = {
     // XXX is this the expected behavior?
     if (this._hasParticipant(this.account._nickname)) {
       this.account._sendMessage(Message("PRIVMSG", [aMessage], this.name));
-      this.writeMessage(this.account._nickname,
-                        aMessage,
-                        {outgoing: true});
+      this.writeMessage(this.account._nickname, aMessage, {outgoing: true});
     }
   },
 
   unInit: function() {
-    this.account._sendMessage(Message("PART", [this.name]));
+    if (this.account.connectionState == Ci.purpleIAccount.STATE_CONNECTED)
+      this.account._sendMessage(Message("PART", [this.name]));
     this.account._removeConversation(this.name);
   },
 
@@ -94,14 +93,27 @@ Chat.prototype = {
     }
     return this._participants[normalizedNick];
   },
-  _removeParticipant: function(aNick) {
-    if (this._hasParticipant(aNick)) {
-      let stringNickname = Cc["@mozilla.org/supports-string;1"]
-                              .createInstance(Ci.nsISupportsString);
-      stringNickname.data = aNick;
+  _updateNick: function(aOldNick, aNewNick) {
+    // Get the original ConvChatBuddy and then remove it
+    let convChatBuddy = this._getParticipant(aOldNick);
+    this._removeParticipant(aOldNick);
 
-      this.notifyObservers(new nsSimpleEnumerator([stringNickname]),
-                           "chat-buddy-remove");
+    // Update the nickname and add it under the new nick
+    convChatBuddy._name = aNewNick;
+    this._participants[normalize(aNewNick, true)] = convChatBuddy;
+
+    this.notifyObservers(convChatBuddy, "chat-buddy-update", aOldNick);
+  },
+  _removeParticipant: function(aNick, aNotifyObservers) {
+    if (this._hasParticipant(aNick)) {
+      if (aNotifyObservers) {
+        let stringNickname = Cc["@mozilla.org/supports-string;1"]
+                                .createInstance(Ci.nsISupportsString);
+        stringNickname.data = aNick;
+
+        this.notifyObservers(new nsSimpleEnumerator([stringNickname]),
+                             "chat-buddy-remove");
+      }
       delete this._participants[normalize(aNick, true)];
     }
   },
@@ -186,6 +198,7 @@ ircSocket.prototype = {
   __proto__: Socket,
   delimiter: "\r\n",
   uriScheme: "irc://",
+  //readWriteTimeout: 300, // Failure occurs after 5 minutes
 
   // Let's keep track of what's going on in the socket
   onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
