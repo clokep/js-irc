@@ -198,7 +198,8 @@ ircSocket.prototype = {
   __proto__: Socket,
   delimiter: "\r\n",
   uriScheme: "irc://",
-  //readWriteTimeout: 300, // Failure occurs after 5 minutes
+  connectTimeout: 60, // Failure to connect after 1 minute
+  readWriteTimeout: 300, // Failure when no data for 5 minutes
 
   // Let's keep track of what's going on in the socket
   onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
