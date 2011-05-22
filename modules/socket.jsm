@@ -554,6 +554,6 @@ TestSocket.prototype = {
 }
 TestSocket.prototype.__proto__ = Socket;
 
-let s1 = new TestSocket();
-s1.name = "s1";
-s1.listen(10000);
+//let s1 = new TestSocket();
+//s1.name = "s1";
+//s1.listen(10000);
