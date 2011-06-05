@@ -34,10 +34,10 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["ircParse", "irc"];
-
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource://irc-js/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 
 // Some helper functions for very common command results
@@ -56,51 +56,9 @@ function serverMessageEnd(aMessage) {
   );
 };
 
-/*
- * See section 2.3 of RFC 2812
- *
- * parseMessage takes the message string and pulls useful information out. It
- * returns a message object which contains:
- *   source..........source of the message
- *   nickname........user's nickname
- *   user............user's username
- *   host............user's hostname
- *   command.........the command being implemented
- *   params..........array of parameters
- */
-// See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
-function ircParse(aData) {
-  let message = {"rawMessage": aData};
-  let temp;
-
-  // Splits the raw string into four parts (the second is required)
-  //   source
-  //   command
-  //   [parameter]
-  //   [:last paramter]
-  if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
-    // Assume message is from the server if not specified
-    message.source = temp[1] || this._server;
-    message.command = temp[2];
-    // Space separated parameters
-    message.params = temp[3] ? temp[3].trim().split(/ +/) : [];
-    if (temp[4]) // Last parameter can contain spaces
-      message.params.push(temp[4]);
-
-    // The source string can be split into multiple parts as:
-    //   :(server|nickname[[!user]@host]
-    if ((temp = message.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
-      message.nickname = temp[1];
-      message.user = temp[2] || null; // Optional
-      message.host = temp[3] || null; // Optional
-    }
-  }
-  return message;
-}
-
 // This contains the implementation for the basic IRC protocol covered by RFCs
 // 1459, 2810, 2811, 2812, and 2813
-var irc = {
+var rfc2812Commands = {
   "ERROR": function(aMessage) {
     // ERROR <error message>
     // Client connection has been terminated
@@ -1285,3 +1243,129 @@ var irc = {
     return true;
   }
 };
+
+
+// Parses a raw IRC message.
+/*
+ * See section 2.3 of RFC 2812
+ *
+ * parseMessage takes the message string and pulls useful information out. It
+ * returns a message object which contains:
+ *   source..........source of the message
+ *   nickname........user's nickname
+ *   user............user's username
+ *   host............user's hostname
+ *   command.........the command being implemented
+ *   params..........array of parameters
+ */
+// See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
+function rfc2812Message(aData) {
+  this.rawMessage = aData;
+  let temp;
+
+  // Splits the raw string into four parts (the second is required)
+  //   source
+  //   command
+  //   [parameter]
+  //   [:last paramter]
+  let params;
+  if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
+    // Assume message is from the server if not specified
+    this.source = temp[1] || this._server;
+    this.command = temp[2];
+    // Space separated parameters
+    params = temp[3] ? temp[3].trim().split(/ +/) : [];
+    if (temp[4]) // Last parameter can contain spaces
+      params.push(temp[4]);
+
+    // The source string can be split into multiple parts as:
+    //   :(server|nickname[[!user]@host]
+    if ((temp = this.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
+      this.nickname = temp[1];
+      this.user = temp[2] || null; // Optional
+      this.host = temp[3] || null; // Optional
+    }
+  }
+
+  if (params.length) {
+    this.params = new nsSimpleEnumerator(params.map(function(aStr) {
+      let supportsString = Cc["@mozilla.org/supports-string;1"]
+                             .createInstance(Ci.nsISupportsString);
+      supportsString.data = aStr;
+      return supportsString;
+    }));
+  } else
+    this.params = EmptyEnumerator;
+}
+rfc2812Message.prototype = {
+  __proto__: ClassInfo("ircIMessage", "RFC 2812 Message - Basic IRC support"),
+  classID:          Components.ID("{886bc073-d894-4bb7-abb3-686d837d3bc6}"),
+  contractID:       "@instantbird.org/irc/rfc2812message;1",
+  toString: function() {
+    dump(this.rawMessage);
+  },
+
+  rawMessage: null,
+  source: null,
+  nickname: null,
+  user: null,
+  host: null,
+  command: null,
+  params: null
+}
+
+function rfc2812() { }
+rfc2812.prototype = {
+  __proto__: ClassInfo("ircISpecification", "RFC 2812 - Basic IRC support"),
+  classID:          Components.ID("{f142ddeb-90ca-4606-a08d-ff29cc048f84}"),
+  contractID:       "@instantbird.org/irc/rfc2812;1",
+
+  // Parameters
+  name: "RFC 2812", // Name identifier
+  priority: Ci.ircISpecification.PRIORITY_DEFAULT, // Default RFC 2812 priority
+  // true if it expects a message already parsed by RFC 2812
+  needsDefaultMessage: true,
+
+  parse: function _rfc2812ParseMessage(aData) new rfc2812Message(aData),
+
+  handle: function(aConv, aMessage) {
+    let command = aMessage.command.toUpperCase();
+    if (!this._ircCommands.hasOwnProperty(command))
+      return false;
+
+    // Make a nice JavaScript object for us to use (instead of the XPCOM
+    // object). First we need convert the nsISimpleEnumerator of
+    // nsISupportsString to a JavaScript array.
+    let jsParams = [];
+    while (aMessage.params.hasMoreElements()) {
+      jsParams[jsParams.length] = aMessage.params.getNext()
+                                      .QueryInterface(Ci.nsISupportsString)
+                                      .toString();
+    }
+
+    let message = {
+      rawMessage: aMessage.rawMessage,
+      source: aMessage.source,
+      nickname: aMessage.nickname,
+      user: aMessage.user,
+      host: aMessage.host,
+      command: aMessage.command,
+      params: jsParams
+    };
+
+    // XXX DEBUG ONLY
+    dump(JSON.stringify(message));
+
+    // Parse the command with the JavaScript conversation object as "this".
+    this._ircCommands[command].call(ircAccounts[aConv.id], message);
+    return true;
+  },
+
+  // Object of IRC commands that can be handled.
+  _ircCommands: rfc2812Commands,
+
+  // Commands to register with Instantbird
+  commands: { }
+};
+
+const NSGetFactory = XPCOMUtils.generateNSGetFactory([rfc2812]);

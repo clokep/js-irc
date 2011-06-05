@@ -42,12 +42,9 @@ Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/commands.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 
-// Import specifications
-Cu.import("resource://irc-js/irc.jsm");
-Cu.import("resource://irc-js/ctcp.jsm");
-var specifications = [ctcp, irc];
-
 Cu.import("resource://irc-js/socket.jsm"); // XXX custom socket
+
+const IRC_SPECIFICATION_CATEGORY = "irc-specification";
 
 function Chat(aAccount, aName, aNick) {
   this._init(aAccount, aName, aNick);
@@ -213,6 +210,7 @@ function Account(aProtoInstance, aKey, aName) {
   this._conversations = {};
   this._buddies = {};
 
+  // Store this account reference so we can get back to the IRC Account object.
   ircAccounts[this.id] = this;
 
   let matches = aName.split("@", 2); // XXX should this use the username split?
@@ -224,11 +222,33 @@ function Account(aProtoInstance, aKey, aName) {
   this._ssl = this.getBool("ssl");
   this._username = this.getString("username");
   this._realname = this.getString("realname");
+
+  // Load specifications
+  this._specifications = [];
+  let catManager = Cc["@mozilla.org/categorymanager;1"]
+             .getService(Ci.nsICategoryManager);
+  let specs = catManager.enumerateCategory(IRC_SPECIFICATION_CATEGORY);
+  while(specs.hasMoreElements()) {
+    // Get the category element names
+    let spec = specs.getNext().QueryInterface(Ci.nsISupportsCString);
+    // Get the element and push it into our array
+    let CID = catManager.getCategoryEntry(IRC_SPECIFICATION_CATEGORY, spec);
+    this._specifications.push(Cc[CID].createInstance(Ci.ircISpecification));
+
+    // Check if this is RFC 2812, if so save it as the "default" specification.
+    if (spec == "rfc2812")
+      this._defaultSpec = this._specifications.slice(-1)[0];
+  }
+
+  // Sort the specifications by priority
+  this._specifications = this._specifications
+                             .sort(function(a, b) b.priority - a.priority);
 }
 Account.prototype = {
   __proto__: GenericAccountPrototype,
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
+  _specifications: [],
 
   statusChanged: function(aStatusType, aMsg) {
     dump(aStatusType + "\r\n<" + aMsg + ">");
@@ -294,27 +314,26 @@ Account.prototype = {
    */
   // Remove aConversation blah blah
   _handleMessage: function(aRawMessage) {
-    var message = ircParse.call(this, aRawMessage);
+    let defaultMessage = this._defaultSpec.parse(aRawMessage);
 
-    // XXX For debug only
-    dump(JSON.stringify(message));
-
-    if (!message.source) // Not a real message
+    if (!defaultMessage.source) // Not a real message
       return;
 
-    let command = message.command.toUpperCase(),
-        handled = false;
+    let handled = false;
 
     // Loop over each specification set and call the command
-    for (let i = 0; i < specifications.length; i++) {
-      let spec = specifications[i];
-      // If the command exists in the spec, execute it
-      if (spec.hasOwnProperty(command)) {
-        try {
-          handled = spec[command].call(this, message);
-        } catch (e) {
-          Cu.reportError(e);
-        }
+    for (let i = 0; i < this._specifications.length; i++) {
+      let spec = this._specifications[i];
+      // Attempt to execute the command, if the spec cannot handle it, it should
+      // immediately return false.
+      // Try block catches any funny business from the server here so the
+      // component can keep executing.
+      try {
+        let message = (!spec.needsDefaultMessage) ?
+                      spec.parse(aRawMessage) : defaultMessage;
+        handled = spec.handle(this, message);
+      } catch (e) {
+        Cu.reportError(e);
       }
 
       // Message was handled, cut out early
@@ -324,11 +343,11 @@ Account.prototype = {
 
     // Nothing handled the message, throw an error
     if (!handled) {
-      // XXX Output it for debug
-      Cu.reportError("Unhandled message: " + aRawMessage);
-      this._getConversation(message.source).writeMessage(
-        message.source,
-        message.rawMessage,
+      Cu.reportError("Unhandled IRC message: " + aRawMessage);
+      // XXX Output it in a conversation for debug
+      this._getConversation(defaultMessage.source).writeMessage(
+        defaultMessage.source,
+        defaultMessage.rawMessage,
         {error: true}
       );
     }

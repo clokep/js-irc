@@ -1,5 +1,15 @@
 resource	irc-js	modules/
 
+# Interfaces used for IRC
+interfaces components/ircIMessage.xpt
+interfaces components/ircISpecification.xpt
+
+# Instantbird IRC Protocol
 component {607b2c0b-9504-483f-ad62-41de09238aec} components/ircProtocol.js
 contract @instantbird.org/purple/irc-js;1 {607b2c0b-9504-483f-ad62-41de09238aec}
-category js-protocol-plugin @instantbird.org/purple/irc-js;1 @instantbird.org/purple/irc-js;1
+category js-protocol-plugin prpl-irc-js @instantbird.org/purple/irc-js;1
+
+# RFC 2812 - Basic IRC Protocol Support
+component {f142ddeb-90ca-4606-a08d-ff29cc048f84} components/rfc2812.js
+contract @instantbird.org/irc/rfc2812;1 {f142ddeb-90ca-4606-a08d-ff29cc048f84}
+category irc-specification rfc2812 @instantbird.org/irc/rfc2812;1
