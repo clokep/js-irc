@@ -34,17 +34,17 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["dump", "normalize", "isMUCName", "Message", "ircAccounts"];
+var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "enumToArray",
+                        "loadCategory", "handleMessage", "DEBUG", "LOG", "WARN",
+                        "ERROR"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource:///modules/imServices.jsm");
+Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
+initLogModule("irc");
 
-function dump(str) {
-  Services.console.logStringMessage(str);
-}
-
-// Hold the IRC Account by ID
+// Object to hold the IRC accounts by ID.
 var ircAccounts = { };
 
 // Handle Scandanavian lower case
@@ -60,17 +60,62 @@ function isMUCName(aStr) {
   return /^[&#+!]/.test(normalize(aStr));
 }
 
-function Message(aCommand, aParams, aTarget) {
-  let message = aCommand;
-  if (aTarget)
-    message += " " + aTarget;
-  if (aParams && aParams.length) {
-    // Join the parameters with spaces, except the last parameter which gets
-    // joined with a " :" before it (and can contain spaces)
-    let params = aParams.slice(0, -1);
-    params.push(":" + aParams.slice(-1));
-    message += " " + params.join(" ");
+// Convert a nsISimpleEnumerator of nsISupportsString to a JavaScript array.
+function enumToArray(aEnum) {
+  let arr = [];
+  while (aEnum.hasMoreElements())
+    arr[arr.length] = aEnum.getNext().QueryInterface(Ci.nsISupportsString).data;
+  return arr;
+}
+
+function loadCategory(aCategory, aInterface) {
+  let entries = [];
+
+  // Get the category manager and enumerator for the category.
+  let catManager = Cc["@mozilla.org/categorymanager;1"]
+                     .getService(Ci.nsICategoryManager);
+  let entryEnum = catManager.enumerateCategory(aCategory);
+  while (entryEnum.hasMoreElements()) {
+    // Get the category element names
+    let entry = entryEnum.getNext().QueryInterface(Ci.nsISupportsCString);
+
+    // Get the element and push it into our array
+    let CID = catManager.getCategoryEntry(aCategory, entry);
+    entries.push(Cc[CID].createInstance(Ci[aInterface]));
   }
-  // XXX should check length of aMessage?
-  return message;
+
+  return entries;
+}
+
+function handleMessage(aConv, aSpecifications, aMessage) {
+  let handled = false;
+
+  // Loop over each specification set and call the command
+  for each (let spec in aSpecifications) {
+    // Attempt to execute the command, if the spec cannot handle it, it should
+    // immediately return false.
+    // Try block catches any funny business from the server here so the
+    // component can keep executing.
+    try {
+      handled = spec.handle(aConv, aMessage);
+    } catch (e) {
+      ERROR(e);
+    }
+
+    // Message was handled, cut out early
+    if (handled)
+      break;
+  }
+
+  // Nothing handled the message, throw an error
+  if (!handled) {
+    ERROR("Unhandled IRC message: " + aMessage.rawMessage);
+
+    // XXX Output it in a conversation for debug
+    ircAccounts[aConv.id]._getConversation(aMessage.source).writeMessage(
+      aMessage.source,
+      aMessage.rawMessage,
+      {error: true}
+    );
+  }
 }

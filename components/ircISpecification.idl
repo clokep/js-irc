@@ -45,17 +45,11 @@ interface ircIMessage;
  */
 [scriptable, uuid(700f90fe-59d3-4cc1-9361-9d0da9af042d)]
 interface ircISpecification: nsISupports {
- /* // The display name of the specification.
+  // The display name of the specification.
   readonly attribute AUTF8String name;
- */
+
   // The priority of the specification.
   readonly attribute PRInt32 priority;
-
-  /*
-   * Indicate if this expects an already parsed message from the default
-   * specification.
-   */
-  readonly attribute boolean needsDefaultMessage;
 
   // Convert a raw message from the server (a string) to a message object.
   ircIMessage parse(in AUTF8String aRawMessage);
