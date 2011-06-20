@@ -82,8 +82,8 @@ CTCPMessage.prototype = {
 // This is the ircISpecification for the IRC protocol, it will call each
 // ircICTCPSpecification that is registered.
 function ircCTCP() {
-  [this._specifications, this._defaultSpec] =
-    loadCategory("irc-ctcp-specification", "ircISpecification", "ctcp");
+  this._specifications =
+    loadCategory("irc-ctcp-specification", "ircISpecification");
   // Sort the specifications by priority
   this._specifications = this._specifications
                              .sort(function(a, b) b.priority - a.priority);
@@ -95,7 +95,6 @@ ircCTCP.prototype = {
 
   // The CTCP specifications we'll enumerate.
   _specifications: [],
-  _defaultSpecification: null,
 
   // Parameters
   name: "CTCP",
@@ -158,7 +157,6 @@ ctcp.prototype = {
 
   // The CTCP specifications we'll enumerate.
   _specifications: [],
-  _defaultSpecification: null,
 
   // Parameters
   name: "CTCP",

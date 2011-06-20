@@ -70,7 +70,8 @@ function rfc2812Message(aData) {
 
     // The source string can be split into multiple parts as:
     //   :(server|nickname[[!user]@host]
-    if ((temp = this.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
+    if (this.source &&
+        (temp = this.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
       this.nickname = temp[1];
       this.user = temp[2] || null; // Optional
       this.host = temp[3] || null; // Optional
@@ -348,16 +349,9 @@ Account.prototype = {
   get canJoinChat() true,
 
   // Private functions
-  /*
-   * Implement Section 5 of RFC 2812
-   */
+  // Implement Section 5 of RFC 2812
   _handleMessage: function(aRawMessage) {
-    let message = new rfc2812Message(aRawMessage);
-
-    if (!message.source) // Not a real message
-      return;
-
-    handleMessage(this, this._specifications, message);
+    handleMessage(this, this._specifications, new rfc2812Message(aRawMessage));
   },
 
   _hasConversation: function(aConversationName)

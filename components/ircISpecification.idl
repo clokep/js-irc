@@ -51,9 +51,6 @@ interface ircISpecification: nsISupports {
   // The priority of the specification.
   readonly attribute PRInt32 priority;
 
-  // Convert a raw message from the server (a string) to a message object.
-  ircIMessage parse(in AUTF8String aRawMessage);
-
   // Handle a message and decide what to do with it.
   boolean handle(in purpleIAccount aAccount, in ircIMessage aMessage);
 
