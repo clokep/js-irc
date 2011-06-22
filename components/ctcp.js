@@ -171,9 +171,10 @@ ctcp.prototype = {
   },
 
   handle: function(aConv, aMessage) {
-  }
-}
-/*
+    let command = aMessage.ctcpCommand.toUpperCase();
+    if (!this._ctcpCommands.hasOwnProperty(command))
+      return false;
+
   // Make a nice JavaScript object for us to use (instead of the XPCOM
   // object).
   let message = {
@@ -190,16 +191,19 @@ ctcp.prototype = {
     ctcpCommand: ctcpMessage.ctcpCommand,
     ctcpParam: ctcpMessage.ctcpParam
   };
-  // Parse the command with the JavaScript conversation object as "this".
-  this._ctcpCommands[command].call(ircAccounts[aConv.id], message);
 
-{
+    LOG(JSON.stringify(message));
+
+    // Parse the command with the JavaScript conversation object as "this".
+    return this._ctcpCommands[command].call(ircAccounts[aConv.id], message);
+  },
+
   _ctcpCommands: {
     "ACTION": function(aMessage) {
       // ACTION <text>
       // Display message in conversation
       this._getConversation(isMUCName(aMessage.params[0]) ?
-                              aMessage.params[0] : aMessage.nickname)
+                            aMessage.params[0] : aMessage.nickname)
           .writeMessage(
             aMessage.nickname || aMessage.source,
             "/me " + aMessage.ctcpParam,
@@ -234,6 +238,6 @@ ctcp.prototype = {
     // The version and type of the client.
     "VERSION": function(aMessage) false
   }
-}*/
+}
 
 const NSGetFactory = XPCOMUtils.generateNSGetFactory([ircCTCP]);

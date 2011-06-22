@@ -68,6 +68,8 @@ function enumToArray(aEnum) {
   return arr;
 }
 
+// Load all the registered components in a category and QI it to a specific
+// interface.
 function loadCategory(aCategory, aInterface) {
   let entries = [];
 
@@ -87,6 +89,7 @@ function loadCategory(aCategory, aInterface) {
   return entries;
 }
 
+// Handle a message based on a set of specifications.
 function handleMessage(aConv, aSpecifications, aMessage) {
   let handled = false;
 

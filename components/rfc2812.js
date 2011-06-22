@@ -1274,8 +1274,7 @@ rfc2812.prototype = {
     LOG(JSON.stringify(message));
 
     // Parse the command with the JavaScript conversation object as "this".
-    this._ircCommands[command].call(ircAccounts[aConv.id], message);
-    return true;
+    return this._ircCommands[command].call(ircAccounts[aConv.id], message);
   },
 
   // Object of IRC commands that can be handled.
