@@ -36,7 +36,7 @@
 
 var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "enumToArray",
                         "loadCategory", "handleMessage", "DEBUG", "LOG", "WARN",
-                        "ERROR"];
+                        "ERROR", "registerCommands"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
@@ -58,6 +58,11 @@ function normalize(aStr, aRemoveStatus) {
 
 function isMUCName(aStr) {
   return /^[&#+!]/.test(normalize(aStr));
+}
+
+// This can be used to test is a string is a valid nickname string
+function isNickName(aStr) {
+  return /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]*/.test(normalize(aStr))
 }
 
 // Convert a nsISimpleEnumerator of nsISupportsString to a JavaScript array.
@@ -121,4 +126,9 @@ function handleMessage(aConv, aSpecifications, aMessage) {
       {error: true}
     );
   }
+}
+
+function registerCommands(aCommands) {
+  for each (let command in aCommands)
+    Services.cmd.registerCommand(command, "prpl-irc");
 }

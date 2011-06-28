@@ -40,12 +40,6 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://irc-js/utils.jsm");
 
-// This is a list of accounts so we can get a reference to them for commands
-var ircAccounts = {};
-
-// This can be used to test is a string is a valid nickname string
-const nicknameRegexp = /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]*/;
-
 // Define some functions that have multiple aliases for commands
 function joinCommand(aMsg, aConv) {
   if (aMsg.length) {
@@ -275,7 +269,7 @@ var commands = [
     helpString: "nick &lt;new nickname&gt;:  Change your nickname.",
     run: function(aMsg, aConv) {
       // Ensure the new nick is a valid nickname
-      if (aMsg.match(nicknameRegexp)) {
+      if (isNickName(aMsg)) {
         ircAccounts[aConv.account.id]._sendMessage("NICK", [aMsg]);
         return true;
       }

@@ -1278,10 +1278,7 @@ rfc2812.prototype = {
   },
 
   // Object of IRC commands that can be handled.
-  _ircCommands: rfc2812Commands,
-
-  // Commands to register with Instantbird
-  commands: { }
+  _ircCommands: rfc2812Commands
 };
 
 const NSGetFactory = XPCOMUtils.generateNSGetFactory([rfc2812]);
