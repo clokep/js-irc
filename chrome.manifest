@@ -20,6 +20,6 @@ contract @instantbird.org/irc/ctcp;1 {5eaf8911-cd4b-4d77-b7c2-abd0270e6bb4}
 category irc-specification ctcp @instantbird.org/irc/ctcp;1
 
 # Basic CTCP Support
-#component {b3f51abb-e280-438c-91f4-0ad1cbadb23c} components/ctcp.js
-#contract @instantbird.org/irc/ctcp/ctcp;1 {b3f51abb-e280-438c-91f4-0ad1cbadb23c}
-#category irc-ctcp-specification ctcp @instantbird.org/irc/ctcp/ctcp;1
+component {b3f51abb-e280-438c-91f4-0ad1cbadb23c} components/ctcp.js
+contract @instantbird.org/irc/ctcp/ctcp;1 {b3f51abb-e280-438c-91f4-0ad1cbadb23c}
+category irc-ctcp-specification ctcp @instantbird.org/irc/ctcp/ctcp;1

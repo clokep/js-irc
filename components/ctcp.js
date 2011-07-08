@@ -40,6 +40,8 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 
+const VERSION = "Instantbird (JS-IRC)";
+
 function CTCPMessage(aMessage, aRawCTCPMessage) {
   this.rawCTCPMessage = aRawCTCPMessage;
 
@@ -175,24 +177,25 @@ ctcp.prototype = {
     if (!this._ctcpCommands.hasOwnProperty(command))
       return false;
 
-  // Make a nice JavaScript object for us to use (instead of the XPCOM
-  // object).
-  let message = {
-    rawMessage: ctcpMessage.rawMessage,
-    source: ctcpMessage.source,
-    nickname: ctcpMessage.nickname,
-    user: ctcpMessage.user,
-    host: ctcpMessage.host,
-    command: ctcpMessage.command,
-    params: enumToArray(ctcpMessage.params),
+    // Make a nice JavaScript object for us to use (instead of the XPCOM
+    // object).
+    let message = {
+      rawMessage: ctcpMessage.rawMessage,
+      source: ctcpMessage.source,
+      nickname: ctcpMessage.nickname,
+      user: ctcpMessage.user,
+      host: ctcpMessage.host,
+      command: ctcpMessage.command,
+      params: enumToArray(ctcpMessage.params),
 
-    format: ctcpMessage.format,
-    rawCTCPMessage: ctcpMessage.rawCTCPMessage,
-    ctcpCommand: ctcpMessage.ctcpCommand,
-    ctcpParam: ctcpMessage.ctcpParam
-  };
+      // CTCP specific properties.
+      format: ctcpMessage.format,
+      rawCTCPMessage: ctcpMessage.rawCTCPMessage,
+      ctcpCommand: ctcpMessage.ctcpCommand,
+      ctcpParam: ctcpMessage.ctcpParam
+    };
 
-    LOG(JSON.stringify(message));
+    LOG("CTCP: " + JSON.stringify(message));
 
     // Parse the command with the JavaScript conversation object as "this".
     return this._ctcpCommands[command].call(ircAccounts[aConv.id], message);
@@ -236,8 +239,29 @@ ctcp.prototype = {
     "USERINFO": function(aMessage) false,
 
     // The version and type of the client.
-    "VERSION": function(aMessage) false
+    "VERSION": function(aMessage) {
+      let conversation = this._getConversation(aMessage.nickname);
+
+      if (aMessage.command == "PRIVMSG") {
+        // VERSION
+        // Received VERSION request, send VERSION response.
+        conversation.writeMessage(aMessage.nickname,
+                                  "Received VERSION request.", {system: true});
+        conversation.writeMessage(aMessage.nickname,
+                                  "Sending VERSION response: " + VERSION + ".",
+                                  {system: true});
+        this._sendCTCPMessage("VERSION", VERSION, aMessage.nickname, true);
+      } else if (aMessage.command == "NOTICE" && aMessage.ctcpParam.length) {
+        // VERSION #:#:#
+        // Received VERSION response, display to the user.
+        conversation.writeMessage(aMessage.nickname,
+                                  "Received VERSION response: " +
+                                    aMessage.ctcpParam + ".",
+                                  {system: true});
+      }
+      return true;
+    }
   }
 }
 
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([ircCTCP]);
+const NSGetFactory = XPCOMUtils.generateNSGetFactory([ircCTCP, ctcp]);

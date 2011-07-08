@@ -400,6 +400,16 @@ Account.prototype = {
     this._socket.sendData(message);
   },
 
+  _sendCTCPMessage: function(aCommand, aParams, aTarget, isNotice) {
+    // Combine the CTCP command and parameters into the single IRC param.
+    let params = aCommand;
+    if (aParams.length)
+      params += " " + aParams.join(" ");
+
+    // Send the IRC message as a NOTICE or PRIVMSG.
+    this._sendMessage(!!isNotice ? "NOTICE" : "PRIVMSG", params, aTarget);
+  },
+
   // Implement section 3.1 of RFC 2812
   _connectionRegistration: function() {
     if (this.password) // Password message, if provided
