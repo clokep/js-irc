@@ -47,7 +47,7 @@ function serverMessage(aMessage) {
     aMessage.params.slice(1).join(" "),
     {system: true}
   );
-  // add return true and remove from everywhere else
+  // XXX add return true and remove from everywhere else
 };
 function serverMessageEnd(aMessage) {
   this._getConversation(aMessage.source).writeMessage(

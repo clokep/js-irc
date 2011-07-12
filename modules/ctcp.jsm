@@ -34,155 +34,94 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+var EXPORTED_SYMBOLS = ["ircCTCP", "ctcp"];
+
 const {classes: Cc, interfaces: Ci, results: Cr, utils: Cu} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://irc-js/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 
 const VERSION = "Instantbird (JS-IRC)";
 
+function lowLevelDequote(aString) {
+  // Dequote (low level)
+  // XXX do these need to be explicitly replaced?
+  // Replace quote char (\020 == \x10) followed by 0, n, r or \020 (== \x10)
+  // with the proper real character (see Low Level Quoting).
+  return aString.replace(/\x100/g, "\0").replace(/\x10n/g, "\n")
+                .replace(/\x10r/g, "\r").replace(/\x10\x10/g, "\020");
+}
+function highLevelDequote(aString) {
+  // Dequote (high level)
+  // Replace quote char (\134 == \x5C) followed by a or \134 (\x5C) with \001
+  // or \134.
+  return aString.replace(/\x5Ca/g, "\001").replace(/\x5C\x5C/g, "\134");
+}
+
 function CTCPMessage(aMessage, aRawCTCPMessage) {
-  this.rawCTCPMessage = aRawCTCPMessage;
+  let message = aMessage;
+  message.rawCTCPMessage = aRawCTCPMessage;
 
   let dequotedCTCPMessage = aRawCTCPMessage.map(function(aMessage) {
-    return this._highLevelDequote(this._lowLevelDequote(aMessage));
-  }, this);
+    return highLevelDequote(lowLevelDequote(aMessage));
+  });
 
-  // Create a new message type object for each one
-  this.rawCTCPMessage = aRawCTCPMessage;
-  let params = aString.split(" ");
-  this.ctcpCommand = params.shift(); // Do not capitalize, case sensitive
-  this.ctcpParam = params.join(" ");
-}
-CTCPMessage.prototype = {
-  __proto__: ClassInfo("ircIMessage", "RFC 2812 Message - Basic IRC support"),
-  classID:          Components.ID("{886bc073-d894-4bb7-abb3-686d837d3bc6}"),
-  contractID:       "@instantbird.org/irc/rfc2812message;1",
-
-  _lowLevelDequote: function(aString) {
-    // Dequote (low level)
-    // XXX do these need to be explicitly replaced?
-    // Replace quote char (\020 == \x10) followed by 0, n, r or \020 (== \x10)
-    // with the proper real character (see Low Level Quoting).
-    return aString.replace(/\x100/g, "\0").replace(/\x10n/g, "\n")
-                  .replace(/\x10r/g, "\r").replace(/\x10\x10/g, "\020");
-  },
-  _highLevelDequote: function(aString) {
-    // Dequote (high level)
-    // Replace quote char (\134 == \x5C) followed by a or \134 (\x5C) with \001
-    // or \134.
-    return aString.replace(/\x5Ca/g, "\001").replace(/\x5C\x5C/g, "\134");
-  },
-
-  format: 0,
-  rawCTCPMessage: null,
-  ctcpCommand: null,
-  ctcpParam: null
+  let params = dequotedCTCPMessage.split(" ");
+  message.ctcpCommand = params.shift(); // Do not capitalize, case sensitive
+  message.ctcpParam = params.join(" ");
+  return message;
 }
 
 // This is the ircISpecification for the IRC protocol, it will call each
 // ircICTCPSpecification that is registered.
-function ircCTCP() {
-  this._specifications =
-    loadCategory("irc-ctcp-specification", "ircISpecification");
-  // Sort the specifications by priority
-  this._specifications = this._specifications
-                             .sort(function(a, b) b.priority - a.priority);
-}
-ircCTCP.prototype = {
-  __proto__: ClassInfo("ircISpecification", "CTCP"),
-  classID:          Components.ID("{5eaf8911-cd4b-4d77-b7c2-abd0270e6bb4}"),
-  contractID:       "@instantbird.org/irc/ctcp;1",
-
-  // The CTCP specifications we'll enumerate.
-  _specifications: [],
-
+var ircCTCP = {
   // Parameters
   name: "CTCP",
+  description: "CTCP",
   // Slightly above default RFC 2812 priority
-  priority: Ci.ircISpecification.PRIORITY_DEFAULT + 10,
+  priority: 10,
 
   // aMessage here is an ircIMessage
-  handle: function(aConv, aMessage) {
-    // CTCP only uses PRIVMSG and NOTICE commands, just return if another
-    // command is received.
-    if (aMessage.command != "PRIVMSG" || aMessage.command != "NOTICE")
-      return false;
-
+  _handleCtcpMessage: function(aMessage) {
     // The raw CTCP message is in the last parameter of the IRC message.
-    let ctcpRawMessage;
-    while (aMessage.params.hasMoreElements()) {
-      ctcpRawMessage = aMessage.params.getNext()
-                                      .QueryInterface(Ci.nsISupportsString);
-    }
+    let ctcpRawMessage = aMessage.params.pop();
 
     // Split the raw message into the multiple CTCP messages and pull out the
     // command and parameters.
-    var ctcpRawMessages = [];
+    var ctcpMessages = [];
     let temp;
     while ((temp = ctcpRawMessage.match(/^\x01([\w\W]*)\x01([\w\W])*$/))) {
       if (temp[0])
-        ctcpMessage.push(new ctcpMessage(aMessage, temp[0]));
+        ctcpMessages.push(new ctcpMessage(aMessage, temp[0]));
       ctcpRawMessage = temp[1];
     }
 
     // If no CTCP messages were found, return false.
-    if (!ctcpRawMessage.length)
+    if (!ctcpMessages.length)
       return false;
 
     // Loop over each raw CTCP message
-    for each (let ctcpRawMessage in ctcpRawMessage) {
-      let ctcpMessage = new CTCPMessage(aMessage, ctcpRawMessage);
-
-      handleMessage(aConv, this._specifications, ctcpMessage);
+    for each (let message in ctcpMessages) {
+      handleMessage(this, ctcpSpecifications, message, message.ctcpCommand);
     }
     return true;
+  },
+
+  // CTCP uses PRIVMSG and NOTICE commands, only handle those commands.
+  commands: {
+    "PRIVMSG": this._handleCtcpMessage,
+    "NOTICE": this._handleCtcpMessage
   }
 }
 
 // This is the ircISpecification for the base CTCP protocol.
-function ctcp() { }
-ctcp.prototype = {
-  __proto__: ClassInfo("ircISpecification", "CTCP"),
-  classID:          Components.ID("{5eaf8911-cd4b-4d77-b7c2-abd0270e6bb4}"),
-  contractID:       "@instantbird.org/irc/ctcp/ctcp;1",
-
+var ctcp = {
   // Parameters
   name: "CTCP",
+  description: "CTCP",
   // Slightly above default RFC 2812 priority
-  priority: Ci.ircISpecification.PRIORITY_DEFAULT + 10,
+  priority: 0,
 
-  handle: function(aConv, aMessage) {
-    let command = aMessage.ctcpCommand.toUpperCase();
-    if (!this._ctcpCommands.hasOwnProperty(command))
-      return false;
-
-    // Make a nice JavaScript object for us to use (instead of the XPCOM
-    // object).
-    let message = {
-      rawMessage: ctcpMessage.rawMessage,
-      source: ctcpMessage.source,
-      nickname: ctcpMessage.nickname,
-      user: ctcpMessage.user,
-      host: ctcpMessage.host,
-      command: ctcpMessage.command,
-      params: enumToArray(ctcpMessage.params),
-
-      // CTCP specific properties.
-      format: ctcpMessage.format,
-      rawCTCPMessage: ctcpMessage.rawCTCPMessage,
-      ctcpCommand: ctcpMessage.ctcpCommand,
-      ctcpParam: ctcpMessage.ctcpParam
-    };
-
-    LOG("CTCP: " + JSON.stringify(message));
-
-    // Parse the command with the JavaScript conversation object as "this".
-    return this._ctcpCommands[command].call(ircAccounts[aConv.id], message);
-  },
-
-  _ctcpCommands: {
+  commands: {
     "ACTION": function(aMessage) {
       // ACTION <text>
       // Display message in conversation
@@ -244,5 +183,3 @@ ctcp.prototype = {
     }
   }
 }
-
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([ircCTCP, ctcp]);
