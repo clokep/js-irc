@@ -36,8 +36,7 @@
 
 var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "enumToArray",
                         "loadCategory", "handleMessage", "DEBUG", "LOG", "WARN",
-                        "ERROR", "registerCommands", "registerHandler",
-                        "unregisterHandler", "ircHandlers"];
+                        "ERROR", "registerCommands"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
@@ -47,29 +46,6 @@ initLogModule("irc");
 
 // Object to hold the IRC accounts by ID.
 var ircAccounts = { };
-
-/*
- * Object to hold the IRC handler, each handler is an object that implements:
- *   name      The display name of the specification.
- *   priority  The priority of the specification (0 is default, positive is
- *             higher priority)
- *   commands  An object of commands, each command is a function which accepts a
- *             message object and has 'this' bound to the account object. It
- *             should return whether the message was successfully handler or
- *             not.
- */
-var ircHandlers = { };
-function registerHandler(aIrcHandler) {
-  ircSpecifications[aIrcHandler.name] = aIrcHandler;
-}
-function unregisterHandler(aIrcHandlerName) {
-  if (aIrcHandlerName in ircHandlers)
-    delete ircHandlers[aIrcHandlerName];
-}
-/*
- * Object to hold the CTCP specifications, see above for the fields toimplement.
- */
-var ctcpSpecifications = { };
 
 // Handle Scandanavian lower case
 // Optionally remove status indicators
@@ -119,10 +95,9 @@ function loadCategory(aCategory, aInterface) {
 }
 
 // Handle a message based on a set of handlers.
+// 'this' is the JS account object.
 function handleMessage(aConv, aHandlers, aMessage, aCommand) {
   let handled = false;
-
-  ERROR(JSON.stringify(aHandlers));
 
   // Loop over each specification set and call the command
   for each (let handler in aHandlers) {
@@ -133,19 +108,19 @@ function handleMessage(aConv, aHandlers, aMessage, aCommand) {
     try {
       if (aCommand in handler.commands) {
         // Parse the command with the JavaScript conversation object as "this".
-        handled = handler[aCommand].call(ircAccounts[aConv.id], aMessage);
+        handled = handler.commands[aCommand]
+                                  .call(ircAccounts[aConv.id], aMessage);
       } else
         handled = false;
     } catch (e) {
       ERROR(e);
     }
 
-    ERROR(aCommand);
-    ERROR(JSON.stringify(aMessage));
-
     // Message was handled, cut out early
-    if (handled)
+    if (handled) {
+      LOG(JSON.stringify(aMessage));
       break;
+    }
   }
 
   // Nothing handled the message, throw an error

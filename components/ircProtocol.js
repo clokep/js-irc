@@ -41,6 +41,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/commands.jsm");
 Cu.import("resource://irc-js/utils.jsm");
+Cu.import("resource://irc-js/handlers.jsm");
 
 Cu.import("resource://irc-js/socket.jsm"); // XXX custom socket
 
