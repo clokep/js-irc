@@ -47,7 +47,7 @@ Cu.import("resource://irc-js/socket.jsm"); // XXX custom socket
 // Parses a raw IRC message into an ircIMessage (see section 2.3 of RFC 2812).
 function rfc2812Message(aData) {
   LOG(aData);
-  this.rawMessage = aData;
+  let message = {rawMessage: aData};
   let temp;
 
   // Splits the raw string into four parts (the second is required)
@@ -56,50 +56,28 @@ function rfc2812Message(aData) {
   //   [parameter]
   //   [:last paramter]
   // See http://joshualuckers.nl/2010/01/10/regular-expression-to-match-raw-irc-messages/
-  let params;
   // Should be equivalent to the slightly simplier:
   //   /^(?:[:@](\S+) )?(\S+)(?: ((?:[^: ]\S* ?)*))?(?: ?:(.*))?$/
   if ((temp = aData.match(/^(?:[:@]([^ ]+) )?([^ ]+)(?: ((?:[^: ][^ ]* ?)*))?(?: ?:(.*))?$/))) {
     // Assume message is from the server if not specified
-    this.source = temp[1] || this._server;
-    this.command = temp[2];
+    message.source = temp[1] || this._server;
+    message.command = temp[2];
     // Space separated parameters
-    params = temp[3] ? temp[3].trim().split(/ +/) : [];
+    message.params = temp[3] ? temp[3].trim().split(/ +/) : [];
     if (temp[4]) // Last parameter can contain spaces
-      params.push(temp[4]);
+      message.params.push(temp[4]);
 
     // The source string can be split into multiple parts as:
     //   :(server|nickname[[!user]@host]
-    if (this.source &&
-        (temp = this.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
-      this.nickname = temp[1];
-      this.user = temp[2] || null; // Optional
-      this.host = temp[3] || null; // Optional
+    if (message.source &&
+        (temp = message.source.match(/([^ !@]+)(?:!([^ @]+))?(?:@([^ ]+))?/))) {
+      message.nickname = temp[1];
+      message.user = temp[2] || null; // Optional
+      message.host = temp[3] || null; // Optional
     }
   }
 
-  if (params.length) {
-    this.params = new nsSimpleEnumerator(params.map(function(aStr) {
-      let supportsString = Cc["@mozilla.org/supports-string;1"]
-                             .createInstance(Ci.nsISupportsString);
-      supportsString.data = aStr;
-      return supportsString;
-    }));
-  } else
-    this.params = EmptyEnumerator;
-}
-rfc2812Message.prototype = {
-  __proto__: ClassInfo("ircIMessage", "RFC 2812 Message - Basic IRC support"),
-  classID:          Components.ID("{886bc073-d894-4bb7-abb3-686d837d3bc6}"),
-  contractID:       "@instantbird.org/irc/rfc2812message;1",
-
-  rawMessage: null,
-  source: null,
-  nickname: null,
-  user: null,
-  host: null,
-  command: null,
-  params: null
+  return message;
 }
 
 function Chat(aAccount, aName, aNick) {
@@ -280,10 +258,11 @@ function Account(aProtoInstance, aKey, aName) {
   this._realname = this.getString("realname");
 
   // Load specifications
-  this._specifications = loadCategory("irc-specification", "ircISpecification");
+  //this._specifications = loadCategory("irc-specification", "ircISpecification");
   // Sort the specifications by priority
-  this._specifications = this._specifications
-                             .sort(function(a, b) b.priority - a.priority);
+  //this._specifications = this._specifications
+  //                           .sort(function(a, b) b.priority - a.priority);
+  this._specifications = ircHandlers;
 }
 Account.prototype = {
   __proto__: GenericAccountPrototype,
@@ -351,7 +330,8 @@ Account.prototype = {
   // Private functions
   // Implement Section 5 of RFC 2812
   _handleMessage: function(aRawMessage) {
-    handleMessage(this, this._specifications, new rfc2812Message(aRawMessage));
+    let message = new rfc2812Message(aRawMessage);
+    handleMessage(this, this._specifications, message, message.command.toUpperCase());
   },
 
   _hasConversation: function(aConversationName)

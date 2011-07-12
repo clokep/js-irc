@@ -144,33 +144,14 @@ ircCTCP.prototype = {
 // This is the ircISpecification for the base CTCP protocol.
 function ctcp() { }
 ctcp.prototype = {
-  __proto__: ClassInfo("ircISpecification", "CTCP - Basic CTCP Support"),
-  classID:          Components.ID("{b3f51abb-e280-438c-91f4-0ad1cbadb23c}"),
-  contractID:       "@instantbird.org/irc/ctcp/ctcp;1",
-
-  // Parameters
-  name: "CTCP", // Name identifier
-  priority: Ci.ircISpecification.PRIORITY_DEFAULT, // Default RFC 2812 priority
-
-  parse: function _ctcpParseMessage(aData) new CTCPMessage(aData),
   __proto__: ClassInfo("ircISpecification", "CTCP"),
   classID:          Components.ID("{5eaf8911-cd4b-4d77-b7c2-abd0270e6bb4}"),
-  contractID:       "@instantbird.org/irc/ctcp;1",
-
-  // The CTCP specifications we'll enumerate.
-  _specifications: [],
+  contractID:       "@instantbird.org/irc/ctcp/ctcp;1",
 
   // Parameters
   name: "CTCP",
   // Slightly above default RFC 2812 priority
   priority: Ci.ircISpecification.PRIORITY_DEFAULT + 10,
-
-  // Only the default IRC specification needs to parse messages, so we won't
-  // implement our own parsing algorithm (we will need to parse, later on, the
-  // CTCP message).
-  parse: function(aRawMessage) {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
-  },
 
   handle: function(aConv, aMessage) {
     let command = aMessage.ctcpCommand.toUpperCase();

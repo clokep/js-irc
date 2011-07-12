@@ -36,7 +36,8 @@
 
 var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "enumToArray",
                         "loadCategory", "handleMessage", "DEBUG", "LOG", "WARN",
-                        "ERROR", "registerCommands"];
+                        "ERROR", "registerCommands", "registerHandler",
+                        "unregisterHandler", "ircHandlers"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
@@ -46,6 +47,29 @@ initLogModule("irc");
 
 // Object to hold the IRC accounts by ID.
 var ircAccounts = { };
+
+/*
+ * Object to hold the IRC handler, each handler is an object that implements:
+ *   name      The display name of the specification.
+ *   priority  The priority of the specification (0 is default, positive is
+ *             higher priority)
+ *   commands  An object of commands, each command is a function which accepts a
+ *             message object and has 'this' bound to the account object. It
+ *             should return whether the message was successfully handler or
+ *             not.
+ */
+var ircHandlers = { };
+function registerHandler(aIrcHandler) {
+  ircSpecifications[aIrcHandler.name] = aIrcHandler;
+}
+function unregisterHandler(aIrcHandlerName) {
+  if (aIrcHandlerName in ircHandlers)
+    delete ircHandlers[aIrcHandlerName];
+}
+/*
+ * Object to hold the CTCP specifications, see above for the fields toimplement.
+ */
+var ctcpSpecifications = { };
 
 // Handle Scandanavian lower case
 // Optionally remove status indicators
@@ -69,7 +93,7 @@ function isNickName(aStr) {
 function enumToArray(aEnum) {
   let arr = [];
   while (aEnum.hasMoreElements())
-    arr[arr.length] = aEnum.getNext().QueryInterface(Ci.nsISupportsString).data;
+    arr.push(aEnum.getNext().QueryInterface(Ci.nsISupportsString).data);
   return arr;
 }
 
@@ -94,21 +118,30 @@ function loadCategory(aCategory, aInterface) {
   return entries;
 }
 
-// Handle a message based on a set of specifications.
-function handleMessage(aConv, aSpecifications, aMessage) {
+// Handle a message based on a set of handlers.
+function handleMessage(aConv, aHandlers, aMessage, aCommand) {
   let handled = false;
 
+  ERROR(JSON.stringify(aHandlers));
+
   // Loop over each specification set and call the command
-  for each (let spec in aSpecifications) {
+  for each (let handler in aHandlers) {
     // Attempt to execute the command, if the spec cannot handle it, it should
     // immediately return false.
     // Try block catches any funny business from the server here so the
     // component can keep executing.
     try {
-      handled = spec.handle(aConv, aMessage);
+      if (aCommand in handler.commands) {
+        // Parse the command with the JavaScript conversation object as "this".
+        handled = handler[aCommand].call(ircAccounts[aConv.id], aMessage);
+      } else
+        handled = false;
     } catch (e) {
       ERROR(e);
     }
+
+    ERROR(aCommand);
+    ERROR(JSON.stringify(aMessage));
 
     // Message was handled, cut out early
     if (handled)

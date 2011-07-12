@@ -34,7 +34,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["ircAccounts", "commands"];
+var EXPORTED_SYMBOLS = ["commands"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 

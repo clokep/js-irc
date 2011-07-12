@@ -34,6 +34,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+var EXPORTED_SYMBOLS = ["rfc2812"];
+
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
@@ -1244,41 +1246,17 @@ var rfc2812Commands = {
   }
 };
 
-function rfc2812() { }
+function rfc2812() {
+  ERROR("HERE");
+  registerHandler(this);
+}
 rfc2812.prototype = {
-  __proto__: ClassInfo("ircISpecification", "RFC 2812 - Basic IRC support"),
-  classID:          Components.ID("{f142ddeb-90ca-4606-a08d-ff29cc048f84}"),
-  contractID:       "@instantbird.org/irc/rfc2812;1",
-
   // Parameters
   name: "RFC 2812", // Name identifier
-  priority: Ci.ircISpecification.PRIORITY_DEFAULT, // Default RFC 2812 priority
-
-  handle: function(aConv, aMessage) {
-    let command = aMessage.command.toUpperCase();
-    if (!this._ircCommands.hasOwnProperty(command))
-      return false;
-
-    // Make a nice JavaScript object for us to use (instead of the XPCOM
-    // object).
-    let message = {
-      rawMessage: aMessage.rawMessage,
-      source: aMessage.source,
-      nickname: aMessage.nickname,
-      user: aMessage.user,
-      host: aMessage.host,
-      command: aMessage.command,
-      params: enumToArray(aMessage.params)
-    };
-
-    LOG(JSON.stringify(message));
-
-    // Parse the command with the JavaScript conversation object as "this".
-    return this._ircCommands[command].call(ircAccounts[aConv.id], message);
-  },
+  description: "RFC 2812 - Basic IRC support",
+  //priority: Ci.ircISpecification.PRIORITY_DEFAULT, // Default RFC 2812 priority
+  priority: 10,
 
   // Object of IRC commands that can be handled.
-  _ircCommands: rfc2812Commands
+  commands: rfc2812Commands
 };
-
-const NSGetFactory = XPCOMUtils.generateNSGetFactory([rfc2812]);
