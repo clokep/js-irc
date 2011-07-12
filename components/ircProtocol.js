@@ -214,8 +214,12 @@ Conversation.prototype = {
   }
 };
 
-function ircSocket(aAccount, aOnDataReceived) {
-  this.onDataReceived = aAccount._handleMessage.bind(aAccount);
+function ircSocket(aAccount) {
+  // Implement Section 5 of RFC 2812
+  this.onDataReceived = (function(aRawMessage) {
+    let message = new rfc2812Message(aRawMessage);
+    handleMessage(this, ircHandlers, message, message.command.toUpperCase());
+  }).bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
   this.onConnectionReset = (function () {
     // Display the error in the account manager
@@ -321,12 +325,6 @@ Account.prototype = {
   get canJoinChat() true,
 
   // Private functions
-  // Implement Section 5 of RFC 2812
-  _handleMessage: function(aRawMessage) {
-    let message = new rfc2812Message(aRawMessage);
-    handleMessage(this, ircHandlers, message, message.command.toUpperCase());
-  },
-
   _hasConversation: function(aConversationName)
     this._conversations.hasOwnProperty(normalize(aConversationName)),
 

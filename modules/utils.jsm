@@ -34,9 +34,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "enumToArray",
-                        "loadCategory", "handleMessage", "DEBUG", "LOG", "WARN",
-                        "ERROR", "registerCommands"];
+var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "loadCategory",
+                        "DEBUG", "LOG", "WARN", "ERROR", "registerCommands"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
@@ -63,56 +62,6 @@ function isMUCName(aStr) {
 // This can be used to test is a string is a valid nickname string
 function isNickName(aStr) {
   return /[A-Za-z\[\]\\`_^\{\|\}][A-Za-z0-9\-\[\]\\`_^\{\|\}]*/.test(normalize(aStr))
-}
-
-// Convert a nsISimpleEnumerator of nsISupportsString to a JavaScript array.
-function enumToArray(aEnum) {
-  let arr = [];
-  while (aEnum.hasMoreElements())
-    arr.push(aEnum.getNext().QueryInterface(Ci.nsISupportsString).data);
-  return arr;
-}
-
-// Handle a message based on a set of handlers.
-// 'this' is the JS account object.
-function handleMessage(aConv, aHandlers, aMessage, aCommand) {
-  let handled = false;
-
-  // Loop over each specification set and call the command
-  for each (let handler in aHandlers) {
-    // Attempt to execute the command, if the spec cannot handle it, it should
-    // immediately return false.
-    // Try block catches any funny business from the server here so the
-    // component can keep executing.
-    try {
-      if (aCommand in handler.commands) {
-        // Parse the command with the JavaScript conversation object as "this".
-        handled = handler.commands[aCommand]
-                                  .call(ircAccounts[aConv.id], aMessage);
-      } else
-        handled = false;
-    } catch (e) {
-      ERROR(e);
-    }
-
-    // Message was handled, cut out early
-    if (handled) {
-      LOG(JSON.stringify(aMessage));
-      break;
-    }
-  }
-
-  // Nothing handled the message, throw an error
-  if (!handled) {
-    ERROR("Unhandled IRC message: " + aMessage.rawMessage);
-
-    // XXX Output it in a conversation for debug
-    ircAccounts[aConv.id]._getConversation(aMessage.source).writeMessage(
-      aMessage.source,
-      aMessage.rawMessage,
-      {error: true}
-    );
-  }
 }
 
 function registerCommands(aCommands) {
