@@ -73,27 +73,6 @@ function enumToArray(aEnum) {
   return arr;
 }
 
-// Load all the registered components in a category and QI it to a specific
-// interface.
-function loadCategory(aCategory, aInterface) {
-  let entries = [];
-
-  // Get the category manager and enumerator for the category.
-  let catManager = Cc["@mozilla.org/categorymanager;1"]
-                     .getService(Ci.nsICategoryManager);
-  let entryEnum = catManager.enumerateCategory(aCategory);
-  while (entryEnum.hasMoreElements()) {
-    // Get the category element names
-    let entry = entryEnum.getNext().QueryInterface(Ci.nsISupportsCString);
-
-    // Get the element and push it into our array
-    let CID = catManager.getCategoryEntry(aCategory, entry);
-    entries.push(Cc[CID].createInstance(Ci[aInterface]));
-  }
-
-  return entries;
-}
-
 // Handle a message based on a set of handlers.
 // 'this' is the JS account object.
 function handleMessage(aConv, aHandlers, aMessage, aCommand) {

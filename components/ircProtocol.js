@@ -257,19 +257,11 @@ function Account(aProtoInstance, aKey, aName) {
   this._ssl = this.getBool("ssl");
   this._username = this.getString("username");
   this._realname = this.getString("realname");
-
-  // Load specifications
-  //this._specifications = loadCategory("irc-specification", "ircISpecification");
-  // Sort the specifications by priority
-  //this._specifications = this._specifications
-  //                           .sort(function(a, b) b.priority - a.priority);
-  this._specifications = ircHandlers;
 }
 Account.prototype = {
   __proto__: GenericAccountPrototype,
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
-  _specifications: [],
 
   statusChanged: function(aStatusType, aMsg) {
     LOG(aStatusType + "\r\n<" + aMsg + ">");
@@ -332,7 +324,7 @@ Account.prototype = {
   // Implement Section 5 of RFC 2812
   _handleMessage: function(aRawMessage) {
     let message = new rfc2812Message(aRawMessage);
-    handleMessage(this, this._specifications, message, message.command.toUpperCase());
+    handleMessage(this, ircHandlers, message, message.command.toUpperCase());
   },
 
   _hasConversation: function(aConversationName)
