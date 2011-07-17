@@ -71,6 +71,35 @@ function CTCPMessage(aMessage, aRawCTCPMessage) {
   return message;
 }
 
+// aMessage here is an IRC Message
+var ctcpHandleMessage = function(aMessage) {
+  // The raw CTCP message is in the last parameter of the IRC message.
+  let ctcpRawMessage = aMessage.params.slice(-1);
+
+  // Split the raw message into the multiple CTCP messages and pull out the
+  // command and parameters.
+  var ctcpMessages = [];
+  let temp;
+  while ((temp = ctcpRawMessage.match(/^\x01([\w\W]*)\x01([\w\W])*$/))) {
+    if (temp[0])
+      ctcpMessages.push(new ctcpMessage(aMessage, temp[0]));
+    ctcpRawMessage = temp[1];
+  }
+
+  // If no CTCP messages were found, return false.
+  if (!ctcpMessages.length)
+    return false;
+
+  let handled = true;
+
+  // Loop over each raw CTCP message
+  for each (let message in ctcpMessages)
+    handled &=
+      handleMessage(this, ctcpSpecifications, message, message.ctcpCommand);
+
+  return handled;
+}
+
 // This is the ircISpecification for the IRC protocol, it will call each
 // ircICTCPSpecification that is registered.
 var ircCTCP = {
@@ -80,36 +109,10 @@ var ircCTCP = {
   // Slightly above default RFC 2812 priority
   priority: 10,
 
-  // aMessage here is an ircIMessage
-  _handleCtcpMessage: function(aMessage) {
-    // The raw CTCP message is in the last parameter of the IRC message.
-    let ctcpRawMessage = aMessage.params.pop();
-
-    // Split the raw message into the multiple CTCP messages and pull out the
-    // command and parameters.
-    var ctcpMessages = [];
-    let temp;
-    while ((temp = ctcpRawMessage.match(/^\x01([\w\W]*)\x01([\w\W])*$/))) {
-      if (temp[0])
-        ctcpMessages.push(new ctcpMessage(aMessage, temp[0]));
-      ctcpRawMessage = temp[1];
-    }
-
-    // If no CTCP messages were found, return false.
-    if (!ctcpMessages.length)
-      return false;
-
-    // Loop over each raw CTCP message
-    for each (let message in ctcpMessages) {
-      handleMessage(this, ctcpSpecifications, message, message.ctcpCommand);
-    }
-    return true;
-  },
-
   // CTCP uses PRIVMSG and NOTICE commands, only handle those commands.
   commands: {
-    "PRIVMSG": this._handleCtcpMessage,
-    "NOTICE": this._handleCtcpMessage
+    "PRIVMSG": ctcpHandleMessage,
+    "NOTICE": ctcpHandleMessage
   }
 }
 

@@ -218,7 +218,20 @@ function ircSocket(aAccount) {
   // Implement Section 5 of RFC 2812
   this.onDataReceived = (function(aRawMessage) {
     let message = new rfc2812Message(aRawMessage);
-    handleMessage(this, ircHandlers, message, message.command.toUpperCase());
+    let handled =
+      handleMessage(this, ircHandlers, message, message.command.toUpperCase());
+
+    // Nothing handled the message, throw an error
+    if (!handled) {
+      ERROR("Unhandled IRC message: " + aRawMessage);
+
+      // XXX Output it in a conversation for debug
+      /*aAccount._getConversation(aMessage.source).writeMessage(
+        aMessage.source,
+        aMessage.rawMessage,
+        {error: true}
+      );*/
+    }
   }).bind(aAccount);
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
   this.onConnectionReset = (function () {
