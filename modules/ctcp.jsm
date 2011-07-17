@@ -39,6 +39,7 @@ var EXPORTED_SYMBOLS = ["ircCTCP", "ctcp"];
 const {classes: Cc, interfaces: Ci, results: Cr, utils: Cu} = Components;
 
 Cu.import("resource://irc-js/utils.jsm");
+Cu.import("resource://irc-js/handlers.jsm");
 
 const VERSION = "Instantbird (JS-IRC)";
 
@@ -61,9 +62,7 @@ function CTCPMessage(aMessage, aRawCTCPMessage) {
   let message = aMessage;
   message.rawCTCPMessage = aRawCTCPMessage;
 
-  let dequotedCTCPMessage = aRawCTCPMessage.map(function(aMessage) {
-    return highLevelDequote(lowLevelDequote(aMessage));
-  });
+  let dequotedCTCPMessage = highLevelDequote(lowLevelDequote(aRawCTCPMessage));
 
   let params = dequotedCTCPMessage.split(" ");
   message.ctcpCommand = params.shift(); // Do not capitalize, case sensitive
@@ -73,6 +72,9 @@ function CTCPMessage(aMessage, aRawCTCPMessage) {
 
 // aMessage here is an IRC Message
 var ctcpHandleMessage = function(aMessage) {
+  if (ctcpHandlers == undefined)
+    registerCTCPHandler(ctcp);
+
   // The raw CTCP message is in the last parameter of the IRC message.
   let ctcpRawMessage = aMessage.params.slice(-1);
 
@@ -80,10 +82,10 @@ var ctcpHandleMessage = function(aMessage) {
   // command and parameters.
   var ctcpMessages = [];
   let temp;
-  while ((temp = ctcpRawMessage.match(/^\x01([\w\W]*)\x01([\w\W])*$/))) {
+  while ((temp = /^\x01([\w\W]*)\x01([\w\W])*$/.exec(ctcpRawMessage))) {
     if (temp[0])
-      ctcpMessages.push(new ctcpMessage(aMessage, temp[0]));
-    ctcpRawMessage = temp[1];
+      ctcpMessages.push(new CTCPMessage(aMessage, temp[1]));
+    ctcpRawMessage = temp[2];
   }
 
   // If no CTCP messages were found, return false.
@@ -93,9 +95,11 @@ var ctcpHandleMessage = function(aMessage) {
   let handled = true;
 
   // Loop over each raw CTCP message
-  for each (let message in ctcpMessages)
+  for each (let message in ctcpMessages) {
+    Cu.reportError(JSON.stringify(message));
     handled &=
-      handleMessage(this, ctcpSpecifications, message, message.ctcpCommand);
+      handleMessage(this, ctcpHandlers, message, message.ctcpCommand);
+  }
 
   return handled;
 }
@@ -121,7 +125,6 @@ var ctcp = {
   // Parameters
   name: "CTCP",
   description: "CTCP",
-  // Slightly above default RFC 2812 priority
   priority: 0,
 
   commands: {

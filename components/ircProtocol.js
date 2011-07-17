@@ -416,6 +416,16 @@ Account.prototype = {
 
 function Protocol() {
   this.registerCommands();
+
+  // Register the standard handlers
+  Cu.import("resource://irc-js/rfc2812.jsm");
+  Cu.import("resource://irc-js/ctcp.jsm");
+
+  // For IRC
+  registerHandler(ircCTCP);
+  registerHandler(rfc2812);
+  // For CTCP
+  registerCTCPHandler(ctcp);
 }
 Protocol.prototype = {
   __proto__: GenericProtocolPrototype,

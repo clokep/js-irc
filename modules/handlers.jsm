@@ -34,17 +34,13 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var EXPORTED_SYMBOLS = ["registerHandler", "unregisterHandler", "ircHandlers",
-                        "handleMessage"];
+var EXPORTED_SYMBOLS = ["registerHandler", "unregisterHandler", "handleMessage",
+                        "registerCTCPHandler",
+                        "ircHandlers", "ctcpHandlers"];
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource://irc-js/utils.jsm");
-
-Cu.import("resource://irc-js/rfc2812.jsm");
-Cu.import("resource://irc-js/ctcp.jsm");
-//Cu.import("resource://irc-js/dcc.jsm");
-//Cu.import("resource://irc-js/xdcc.jsm");
 
 /*
  * Object to hold the IRC handler, each handler is an object that implements:
@@ -56,7 +52,7 @@ Cu.import("resource://irc-js/ctcp.jsm");
  *             should return whether the message was successfully handler or
  *             not.
  */
-var ircHandlers = [ircCTCP, rfc2812];
+var ircHandlers = [];
 function registerHandler(aIrcHandler) {
   ircHandlers.push(aIrcHandler);
   ircHandlers.sort(function(a, b) b.priority - a.priority);
@@ -67,7 +63,11 @@ function registerHandler(aIrcHandler) {
 /*
  * Object to hold the CTCP specifications, see above for the fields toimplement.
  */
-var ctcpSpecifications = [];
+var ctcpHandlers = [];
+function registerCTCPHandler(aCTCPHandler) {
+  ctcpHandlers.push(aCTCPHandler);
+  ctcpHandlers.sort(function(a, b) b.priority - a.priority);
+}
 
 // Handle a message based on a set of handlers.
 // 'this' is the JS account object.
