@@ -44,25 +44,78 @@ Cu.import("resource://irc-js/handlers.jsm");
 const VERSION = "Instantbird (JS-IRC)";
 
 function lowLevelDequote(aString) {
-  // Dequote (low level)
-  // XXX do these need to be explicitly replaced?
-  // Replace quote char (\020 == \x10) followed by 0, n, r or \020 (== \x10)
-  // with the proper real character (see Low Level Quoting).
-  return aString.replace(/\x100/g, "\0").replace(/\x10n/g, "\n")
-                .replace(/\x10r/g, "\r").replace(/\x10\x10/g, "\020");
+  // Dequote (low level) / Low Level Quoting
+  // Replace quote char \020 followed by 0, n, r or \020 with the escaped
+  // character.
+
+  let unquoted = "";
+
+  for (i = 0; i < aString.length; i++) {
+    // Handle a normal character
+    if (aString[i] != "\020") {
+      unquoted += aString[i];
+      continue;
+    }
+
+    // Look at the character after the escape char
+    i++;
+
+    if (aString[i] == "0") {
+      // Replace with a null
+      unquoted += "\0"
+    } else if (aString[i] == "n") {
+      // Replace with a line break
+      unquoted += "\n"
+    } else if (aString[i] == "r") {
+      // Replace with a carriage return
+      unquoted += "\r"
+    } else if (aString[i] == "\020") {
+      // Replace with the escape char
+      unquoted += "\020";
+    } else {
+      // The quote char followed by any other character just gets removed.
+      // XXX throw a warning
+      unquoted += aString[i];
+    }
+  }
+
+  return unquoted;
 }
+
 function highLevelDequote(aString) {
-  // Dequote (high level)
-  // Replace quote char (\134 == \x5C) followed by a or \134 (\x5C) with \001
-  // or \134.
-  return aString.replace(/\x5Ca/g, "\001").replace(/\x5C\x5C/g, "\134");
+  // Dequote (high level) / CTCP Level Quoting
+  // Replace quote char \134 followed by a or \134 with \001 or \134,
+  // respectively.
+  let unquoted = "";
+
+  for (i = 0; i < aString.length; i++) {
+    // Handle a normal character
+    if (aString[i] != "\134") {
+      unquoted += aString[i];
+      continue;
+    }
+
+    // Look at the character after the escape char
+    i++;
+
+    if (aString[i] == "a") {
+      unquoted += "\001";
+    } else if (aString[i] == "\134") {
+      unquoted += "\134"
+    } else {
+      // The quote char followed by any other character just gets removed.
+      // XXX throw a warning
+      unquoted += aString[i];
+    }
+  }
+  return unquoted;
 }
 
 function CTCPMessage(aMessage, aRawCTCPMessage) {
   let message = aMessage;
   message.rawCTCPMessage = aRawCTCPMessage;
 
-  let dequotedCTCPMessage = highLevelDequote(lowLevelDequote(aRawCTCPMessage));
+  let dequotedCTCPMessage = highLevelDequote(aRawCTCPMessage);
 
   let params = dequotedCTCPMessage.split(" ");
   message.ctcpCommand = params.shift(); // Do not capitalize, case sensitive
@@ -70,13 +123,12 @@ function CTCPMessage(aMessage, aRawCTCPMessage) {
   return message;
 }
 
-// aMessage here is an IRC Message
 var ctcpHandleMessage = function(aMessage) {
   if (ctcpHandlers == undefined)
     registerCTCPHandler(ctcp);
 
   // The raw CTCP message is in the last parameter of the IRC message.
-  let ctcpRawMessage = aMessage.params.slice(-1);
+  let ctcpRawMessage = lowLevelDequote(aMessage.params.slice(-1));
 
   // Split the raw message into the multiple CTCP messages and pull out the
   // command and parameters.
@@ -151,7 +203,40 @@ var ctcp = {
     "CLIENTINFO": function(aMessage) false,
 
     // Used to measure the delay of the IRC network between clients.
-    "PING": function(aMessage) false,
+    "PING": function(aMessage) {
+      if (aMessage.command == "PRIVMSG") {
+        // PING timestamp
+        // Received PING request, send PING response.
+        let consoleString = "Received PING request from " +
+                            aMessage.nickname + ". Sending PING " +
+                            "response: \"" + aMessage.ctcpParam + "\".";
+        LOG(consoleString, {system: true});
+        this._sendCTCPMessage("PING", aMessage.ctcpParam, aMessage.nickname,
+                              true);
+      } else {
+        // PING timestamp
+        // Received PING response, display to the user.
+        let sentTime = new Date(aMessage.ctcpParam);
+
+        // The received timestamp is invalid
+        if (sentTime == "Invalid Date") {
+          let consoleString = aMessage.nickname +
+            " returned an invalid timestamp from a CTCP PING: " +
+            aMessage.ctcpParam;
+          WARN(consoleString);
+          return false;
+        }
+
+        // Find the delay in seconds.
+        let delay = (Date.now() - sentTime) / 1000;
+
+        let response = "Received PING response. There is a delay of " + delay +
+                       " to " + aMessage.nickname;
+        this._getConversation(aMessage.nickname)
+            .writeMessage(aMessage.nickname, response, {system: true});
+      }
+      return true;
+    },
 
     "SED": function(aMessage) false,
 
@@ -166,8 +251,6 @@ var ctcp = {
 
     // The version and type of the client.
     "VERSION": function(aMessage) {
-      let conversation = this._getConversation(aMessage.nickname);
-
       if (aMessage.command == "PRIVMSG") {
         // VERSION
         // Received VERSION request, send VERSION response.
@@ -179,10 +262,10 @@ var ctcp = {
       } else if (aMessage.command == "NOTICE" && aMessage.ctcpParam.length) {
         // VERSION #:#:#
         // Received VERSION response, display to the user.
-        conversation.writeMessage(aMessage.nickname,
-                                  "Received VERSION response: " +
-                                    aMessage.ctcpParam + ".",
-                                  {system: true});
+        let message = "Received VERSION response: " + aMessage.ctcpParam + ".";
+
+        this._getConversation(aMessage.nickname)
+            .writeMessage(aMessage.nickname, message, {system: true});
       }
       return true;
     }
