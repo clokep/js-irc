@@ -171,11 +171,10 @@ var ctcp = {
       if (aMessage.command == "PRIVMSG") {
         // VERSION
         // Received VERSION request, send VERSION response.
-        conversation.writeMessage(aMessage.nickname,
-                                  "Received VERSION request.", {system: true});
-        conversation.writeMessage(aMessage.nickname,
-                                  "Sending VERSION response: " + VERSION + ".",
-                                  {system: true});
+        let consoleString = "Received VERSION request from " +
+                            aMessage.nickname + ". Sending VERSION " +
+                            "response: \"" + VERSION + "\".";
+        LOG(consoleString, {system: true});
         this._sendCTCPMessage("VERSION", VERSION, aMessage.nickname, true);
       } else if (aMessage.command == "NOTICE" && aMessage.ctcpParam.length) {
         // VERSION #:#:#

@@ -36,7 +36,7 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource:///modules/imXPCOMUtils.jsm");
 //Cu.import("resource:///modules/jsProtoHelper.jsm");
 Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/commands.jsm");

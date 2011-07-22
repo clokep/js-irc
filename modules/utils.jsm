@@ -40,7 +40,7 @@ var EXPORTED_SYMBOLS = ["normalize", "isMUCName", "ircAccounts", "loadCategory",
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource:///modules/imServices.jsm");
-Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
+Cu.import("resource:///modules/imXPCOMUtils.jsm");
 initLogModule("irc");
 
 // Object to hold the IRC accounts by ID.

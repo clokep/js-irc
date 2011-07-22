@@ -1223,7 +1223,6 @@ var rfc2812 = {
     "485": function(aMessage) { // ERR_UNIQOPPRIVSNEEDED
       // :You're not the original channel operator
       // XXX ask to auth?
-      // XXX
       return false;
     },
     "491": function(aMessage) { // ERR_NOOPERHOST
