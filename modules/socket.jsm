@@ -152,6 +152,7 @@ const Socket = {
 
     // Array of security options
     this.security = aSecurity || [];
+    this.log(this.security);
 
     // Choose a proxy, use the given one, otherwise get one from the proxy
     // service

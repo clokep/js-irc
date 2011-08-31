@@ -254,7 +254,8 @@ ircSocket.prototype = {
   onConnectionTimedOut: function() { Cu.reportError("Timed out"); },
   onCertificationError: function(aSocketInfo, aStatus, aTargetSite) {
     Cu.reportError("Cert error");
-  }
+  },
+  log: ERROR
 };
 
 function Account(aProtoInstance, aKey, aName) {
@@ -292,14 +293,10 @@ Account.prototype = {
   connect: function() {
     this.base.connecting();
 
-    // Remove the participants of all conversations so we don't get doubles
-    Object.keys(this._conversations).forEach(function (aConvName) {
-      this._getConversation(aConvName)._removeAllParticipants();
-    }, this);
-
     // Open the socket connection
     this._socket = new ircSocket(this);
-    this._socket.connect(this._server, this._port, this._ssl, null, false, "\r\n");
+    this._socket.connect(this._server, this._port, this._ssl ? ["ssl"] : [],
+                         null, false, "\r\n");
   },
 
   // When the user clicks "Disconnect" in account manager
