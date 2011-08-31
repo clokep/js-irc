@@ -381,7 +381,13 @@ Account.prototype = {
     // XXX should check length of aMessage?
 
     LOG("Sending... <" + message.trim() + ">");
-    this._socket.sendData(message);
+    try {
+      this._socket.sendData(message);
+    } catch(e) {
+      this._disconnect();
+      this.base.disconnect(this._base.ERROR_NETWORK_ERROR,
+                           "Socket closed unexpectedly.")
+    }
   },
 
   _sendCTCPMessage: function(aCommand, aParams, aTarget, isNotice) {
@@ -400,8 +406,8 @@ Account.prototype = {
       this._sendMessage("PASS", [], this.password);
     this._sendMessage("NICK", [], this._nickname); // Nick message
     this._sendMessage("USER", [this._username || this._nickname,
-                                  this._mode, "*",
-                                  this._realname || this._nickname]); // User message
+                               this._mode, "*",
+                               this._realname || this._nickname]); // User message
   },
 
   _disconnect: function() {
