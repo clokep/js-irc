@@ -463,6 +463,7 @@ const GenericConvChatPrototype = {
     this._nick = aNick;
     GenericConversationPrototype._init.call(this, aAccount, aName);
   },
+  getNormalizedChatBuddyName: function(aChatBuddyName) aChatBuddyName,
 
   get isChat() true,
   get nick() this._nick,
