@@ -59,6 +59,7 @@
  *   .listen(port)
  *   .send(String data)
  *   .isAlive()
+ *   .startTLS()
  * High-level properties:
  *   XXX Need to include properties here
  *
@@ -68,6 +69,7 @@
  *   onConnectionHeard()
  *   onConnectionTimedOut()
  *   onConnectionReset()
+ *   onConnectionClosed()
  *   onDataReceived(data)
  *   onBinaryDataReceived(ArrayBuffer data, int length)
  *   onTransportStatus(nsISocketTransport transport, nsresult status,
@@ -80,6 +82,7 @@
  *   Add a message queue to keep from flooding a server (just an array, just
  *     keep shifting the first element off and calling as setTimeout for the
  *     desired flood time?).
+ *   Figure out usage of nsISSLSocketControl (proxyStartSSL() and StartTLS())
  */
 
 var EXPORTED_SYMBOLS = ["Socket"];
@@ -259,6 +262,10 @@ const Socket = {
       return false;
     return this.transport.isAlive();
   },
+  
+  startTLS: function() {
+    this.transport.securityInfo.QueryInterface(Ci.nsISSLSocketControl).StartTLS();
+  },
 
   /*
    *****************************************************************************
@@ -351,9 +358,12 @@ const Socket = {
   },
   // Called to signify the end of an asynchronous request.
   onStopRequest: function(aRequest, aContext, aStatus) {
-    this.log("onStopRequest (" + aStatus + ")");
+    this.log("onStopRequest (" + aStatus + ", " + aContext + ", " +
+             aRequest + ")");
     if (aStatus == NS_ERROR_NET_RESET)
       this.onConnectionReset();
+    else if (Components.isSuccessCode(aStatus))
+      this.onConnectionClosed();
   },
 
   /*
@@ -469,6 +479,8 @@ const Socket = {
   onConnectionTimedOut: function() { },
   // Called when a socket request's network is reset
   onConnectionReset: function() { },
+  // Called when a socket is closed successfully.
+  onConnectionClosed: function() { },
 
   // Called when ASCII data is available.
   onDataReceived: function(/* string */ aData) { },
@@ -517,7 +529,7 @@ const Socket = {
   contractID: null,
   classID: null,
   implementationLanguage: Ci.nsIProgrammingLanguage.JAVASCRIPT,
-  flags: 0,
+  flags: 0
 };
 
 

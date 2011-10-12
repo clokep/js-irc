@@ -37,8 +37,8 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource:///modules/imXPCOMUtils.jsm");
-//Cu.import("resource:///modules/jsProtoHelper.jsm");
-Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
+Cu.import("resource:///modules/jsProtoHelper.jsm");
+//Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/commands.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 Cu.import("resource://irc-js/handlers.jsm");
@@ -162,7 +162,10 @@ Chat.prototype = {
     this.notifyObservers(new nsSimpleEnumerator(stringNicknames),
                          "chat-buddy-remove");
     this._participants = {};
-  }
+  },
+
+  get left() this._hasParticipant(this.name),
+  get topicSettable() true
 };
 
 function ConvChatBuddy(aName) {
@@ -217,6 +220,30 @@ Conversation.prototype = {
 function ircSocket(aAccount) {
   // Implement Section 5 of RFC 2812
   this.onDataReceived = (function(aRawMessage) {
+    // If there was a previous timeout, cancel it and delete it.
+    if (this._pingTimeoutTimer) {
+      this._pingTimeoutTimer.cancel();
+      delete this._pingTimeoutTimer;
+    }
+
+    // Create a ping timeout that will say we disconnected if we haven't heard
+    // from the server in a while.
+    this._pingTimeoutTimer = setTimeout((function() {
+      // Just in case we ARE still connected to the server, be nice and send a
+      // QUIT command. We expect this to fail.
+      try {
+        this._sendMessage("QUIT", ["Ping timeout."]);
+      } catch (e) {
+        // XXX check if e is of the type we expect and rethrow if it isn't.
+      }
+
+      // Throw an error so Instantbird will reconnect us.
+      this.base.disconnecting(this._base.ERROR_NETWORK_ERROR, "Ping timeout.");
+
+      // Close & clean up the socket.
+      this._socket.disconnect();
+    }).bind(this), this._pingTimeout);
+
     let message = new rfc2812Message(aRawMessage);
     let handled =
       handleMessage(this, ircHandlers, message, message.command.toUpperCase());
@@ -280,6 +307,11 @@ Account.prototype = {
   __proto__: GenericAccountPrototype,
   _socket: null,
   _mode: 0x00, // bit 2 is 'w' (wallops) and bit 3 is 'i' (invisible)
+  get HTMLEnabled() false,
+
+  // Milliseconds until we consider the server to have timed out on us.
+  _pingTimeout: 180 * 1000, // 3 minutes.
+  _pingTimeoutTimer: null,
 
   statusChanged: function(aStatusType, aMsg) {
     LOG(aStatusType + "\r\n<" + aMsg + ">");
@@ -456,6 +488,7 @@ Protocol.prototype = {
   commands: commands,
 
   get chatHasTopic() true,
+  get slashCommandsNative() true,
 
   getAccount: function(aKey, aName) new Account(this, aKey, aName),
   classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}")

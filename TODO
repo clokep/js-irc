@@ -1,0 +1,16 @@
+List of things to do before this is usable (feature parity with libpurple):
+
+* Implement buddies.
+  * Keep track of online status (ISON)
+  * Keep track of away status
+* Handle or strip CTCP formatting (bold, italics, etc.)
+
+Ensure Socket works correctly
+* Can reconnect
+* Data queue
+
+List of things to improve upon libpurple:
+* Shows message of the day
+* Extensible
+
+Sending converts to HTML entities

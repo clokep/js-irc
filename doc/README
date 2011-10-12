@@ -125,3 +125,5 @@ Other:
     http://wiki.inspircd.org/STARTTLS_Documentation
   General comparison of feature support
     http://www.alien.net.au/irc/
+  Extended Join
+    http://git.atheme.org/charybdis/plain/doc/extended-join.txt
