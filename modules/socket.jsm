@@ -262,7 +262,7 @@ const Socket = {
       return false;
     return this.transport.isAlive();
   },
-  
+
   startTLS: function() {
     this.transport.securityInfo.QueryInterface(Ci.nsISSLSocketControl).StartTLS();
   },
@@ -425,7 +425,7 @@ const Socket = {
     }
     if (this.readWriteTimeout) {
       this.transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_READ_WRITE,
-                                this.connectTimeout);
+                                this.readWriteTimeout);
     }
 
     this.transport.setEventSink(this, Services.tm.currentThread);
