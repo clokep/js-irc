@@ -379,8 +379,8 @@ Account.prototype = {
       message += " " + params.join(" ");
     }
 
-    message = message.replace("&lt;", "<").replace("&gt;", ">")
-                     .replace("&amp;", "&");
+    message = message.replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+                     .replace(/&amp;/g, "&");
 
     // XXX should check length of aMessage?
 
