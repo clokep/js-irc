@@ -240,7 +240,7 @@ var rfc2812 = {
     "001": function(aMessage) { // RPL_WELCOME
       // Welcome to the Internet Relay Network <nick>!<user>@<host>
       serverMessage.call(this, aMessage);
-      this.base.connected();
+      this.reportConnected();
       return true;
     },
     "002": function(aMessage) { // RPL_YOURHOST

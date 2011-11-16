@@ -38,7 +38,6 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 Cu.import("resource:///modules/imXPCOMUtils.jsm");
 Cu.import("resource:///modules/jsProtoHelper.jsm");
-//Cu.import("resource://irc-js/jsProtoHelper.jsm"); // XXX Custom jsProtoHelper
 Cu.import("resource://irc-js/commands.jsm");
 Cu.import("resource://irc-js/utils.jsm");
 Cu.import("resource://irc-js/handlers.jsm");
@@ -82,23 +81,25 @@ function rfc2812Message(aData) {
 }
 
 function Chat(aAccount, aName, aNick) {
+  this._account = aAccount;
   this._init(aAccount, aName, aNick);
 }
 Chat.prototype = {
   __proto__: GenericConvChatPrototype,
+  _account: null,
   sendMsg: function(aMessage) {
     // Only send message if we're in the room
     // XXX is this the expected behavior?
-    if (this._hasParticipant(this.account._nickname)) {
-      this.account._sendMessage("PRIVMSG", [aMessage], this.name);
-      this.writeMessage(this.account._nickname, aMessage, {outgoing: true});
+    if (this._hasParticipant(this._account._nickname)) {
+      this._account._sendMessage("PRIVMSG", [aMessage], this.name);
+      this.writeMessage(this._account._nickname, aMessage, {outgoing: true});
     }
   },
 
   unInit: function() {
-    if (this.account.connectionState == Ci.purpleIAccount.STATE_CONNECTED)
-      this.account._sendMessage("PART", [this.name]);
-    this.account._removeConversation(this.name);
+    if (this._account.connectionState == Ci.purpleIAccount.STATE_CONNECTED)
+      this._account._sendMessage("PART", [this.name]);
+    this._account._removeConversation(this.name);
   },
 
   setTopic: function(aTopic, aTopicSetter) {
@@ -202,18 +203,20 @@ ConvChatBuddy.prototype = {
 };
 
 function Conversation(aAccount, aName) {
+  this._account = aAccount;
   this._init(aAccount, aName);
 }
 Conversation.prototype = {
   __proto__: GenericConvIMPrototype,
+  _account: null,
   sendMsg: function(aMessage) {
-    this.account._sendMessage("PRIVMSG", [aMessage], this.name);
-    this.writeMessage(this.account._nickname,
+    this._account._sendMessage("PRIVMSG", [aMessage], this.name);
+    this.writeMessage(this._account._nickname,
                       aMessage,
                       {outgoing: true});
   },
   unInit: function() {
-    this.account._removeConversation(this.name);
+    this._account._removeConversation(this.name);
   }
 };
 
@@ -239,9 +242,9 @@ function ircSocket(aAccount) {
   this.onConnection = aAccount._connectionRegistration.bind(aAccount);
   this.onConnectionReset = (function () {
     // Display the error in the account manager
-    this.base.disconnecting(Ci.purpleIAccount.ERROR_NETWORK_ERROR,
+    this.reportDisconnecting(Ci.purpleIAccount.ERROR_NETWORK_ERROR,
                             "Connection reset.");
-    this.base.disconnected(); // Start the reconnection timer
+    this.reportDisconnected(); // Start the reconnection timer
     this._socket.disconnect();
     Cu.reportError("Connection reset.");
   }).bind(aAccount);
@@ -261,15 +264,15 @@ ircSocket.prototype = {
   log: ERROR
 };
 
-function Account(aProtoInstance, aKey, aName) {
-  this._init(aProtoInstance, aKey, aName);
+function Account(aProtocol, aImAccount) {
+  this._init(aProtocol, aImAccount);
   this._conversations = {};
   this._buddies = {};
 
   // Store this account reference so we can get back to the IRC Account object.
   ircAccounts[this.id] = this;
 
-  let matches = aName.split("@", 2); // XXX should this use the username split?
+  let matches = aImAccount.name.split("@", 2); // XXX should this use the username split?
   this._nickname = matches[0];
   this._server = matches[1];
 
@@ -295,7 +298,7 @@ Account.prototype = {
   },
 
   connect: function() {
-    this.base.connecting();
+    this.reportConnecting();
 
     // Open the socket connection
     this._socket = new ircSocket(this);
@@ -307,7 +310,8 @@ Account.prototype = {
   disconnect: function() {
     if (this.connected) {
       // Let the server know we're going to disconnect
-      this.base.disconnecting(this._base.NO_ERROR, "Sending the QUIT message");
+      this.reportDisconnecting(Ci.prplIAccount.NO_ERROR,
+                               "Sending the QUIT message");
       let quitMessage = this.getString("quitmsg");
       this._sendMessage("QUIT", [quitMessage]); // RFC 2812 Section 3.1.7
     } else
@@ -389,8 +393,8 @@ Account.prototype = {
       this._socket.sendData(message);
     } catch(e) {
       this._disconnect();
-      this.base.disconnect(this._base.ERROR_NETWORK_ERROR,
-                           "Socket closed unexpectedly.")
+      this.reportDisconnected(Ci.prplIAccount.ERROR_NETWORK_ERROR,
+                              "Socket closed unexpectedly.")
     }
   },
 
@@ -416,11 +420,11 @@ Account.prototype = {
 
   _disconnect: function() {
     // force QUIT and close the sockets
-    this.base.disconnecting(this._base.NO_ERROR, "Closing sockets.");
+    this.reportDisconnecting(Ci.prplIAccount.NO_ERROR, "Closing sockets.");
 
     this._socket.disconnect();
 
-    this.base.disconnected();
+    this.reportDisconnected();
   }
 };
 
@@ -465,7 +469,7 @@ Protocol.prototype = {
   get chatHasTopic() true,
   get slashCommandsNative() true,
 
-  getAccount: function(aKey, aName) new Account(this, aKey, aName),
+  getAccount: function(aImAccount) new Account(this, aImAccount),
   classID: Components.ID("{607b2c0b-9504-483f-ad62-41de09238aec}")
 };
 

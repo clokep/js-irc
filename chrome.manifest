@@ -2,5 +2,5 @@ resource	irc-js	modules/
 
 # Instantbird IRC Protocol
 component {607b2c0b-9504-483f-ad62-41de09238aec} components/ircProtocol.js
-contract @instantbird.org/purple/irc-js;1 {607b2c0b-9504-483f-ad62-41de09238aec}
-category js-protocol-plugin prpl-irc-js @instantbird.org/purple/irc-js;1
+contract @instantbird.org/purple/irc;1 {607b2c0b-9504-483f-ad62-41de09238aec}
+category im-protocol-plugin prpl-irc @instantbird.org/purple/irc;1
